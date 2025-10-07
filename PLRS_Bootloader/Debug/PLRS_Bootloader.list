@@ -1,0 +1,2599 @@
+
+PLRS_Bootloader.elf:     file format elf32-littlearm
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .isr_vector   00000238  08000000  08000000  00001000  2**0
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  1 .text         00000c20  08000238  08000238  00001238  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  2 .init_array   00000004  08000e58  08000e58  00001e58  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  3 .fini_array   00000004  08000e5c  08000e5c  00001e5c  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  4 .data         00000020  20000000  08000e60  00002000  2**2
+                  CONTENTS, ALLOC, LOAD, DATA
+  5 .bss          00000078  20000020  08000e80  00002020  2**2
+                  ALLOC
+  6 ._user_heap_stack 00000600  20000098  08000e80  00002098  2**0
+                  ALLOC
+  7 .ARM.attributes 00000036  00000000  00000000  00002020  2**0
+                  CONTENTS, READONLY
+  8 .debug_info   0000d9cd  00000000  00000000  00002056  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+  9 .debug_abbrev 00001c3d  00000000  00000000  0000fa23  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 10 .debug_aranges 00000b90  00000000  00000000  00011660  2**3
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 11 .debug_rnglists 000008ed  00000000  00000000  000121f0  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 12 .debug_macro  0003231e  00000000  00000000  00012add  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 13 .debug_line   0000f544  00000000  00000000  00044dfb  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 14 .debug_str    001424a0  00000000  00000000  0005433f  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 15 .comment      00000043  00000000  00000000  001967df  2**0
+                  CONTENTS, READONLY
+ 16 .debug_frame  000030bc  00000000  00000000  00196824  2**2
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 17 .debug_line_str 00000072  00000000  00000000  001998e0  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+
+Disassembly of section .text:
+
+08000238 <__do_global_dtors_aux>:
+ 8000238:	b510      	push	{r4, lr}
+ 800023a:	4c05      	ldr	r4, [pc, #20]	@ (8000250 <__do_global_dtors_aux+0x18>)
+ 800023c:	7823      	ldrb	r3, [r4, #0]
+ 800023e:	b933      	cbnz	r3, 800024e <__do_global_dtors_aux+0x16>
+ 8000240:	4b04      	ldr	r3, [pc, #16]	@ (8000254 <__do_global_dtors_aux+0x1c>)
+ 8000242:	b113      	cbz	r3, 800024a <__do_global_dtors_aux+0x12>
+ 8000244:	4804      	ldr	r0, [pc, #16]	@ (8000258 <__do_global_dtors_aux+0x20>)
+ 8000246:	f3af 8000 	nop.w
+ 800024a:	2301      	movs	r3, #1
+ 800024c:	7023      	strb	r3, [r4, #0]
+ 800024e:	bd10      	pop	{r4, pc}
+ 8000250:	20000020 	.word	0x20000020
+ 8000254:	00000000 	.word	0x00000000
+ 8000258:	08000e40 	.word	0x08000e40
+
+0800025c <frame_dummy>:
+ 800025c:	b508      	push	{r3, lr}
+ 800025e:	4b03      	ldr	r3, [pc, #12]	@ (800026c <frame_dummy+0x10>)
+ 8000260:	b11b      	cbz	r3, 800026a <frame_dummy+0xe>
+ 8000262:	4903      	ldr	r1, [pc, #12]	@ (8000270 <frame_dummy+0x14>)
+ 8000264:	4803      	ldr	r0, [pc, #12]	@ (8000274 <frame_dummy+0x18>)
+ 8000266:	f3af 8000 	nop.w
+ 800026a:	bd08      	pop	{r3, pc}
+ 800026c:	00000000 	.word	0x00000000
+ 8000270:	20000024 	.word	0x20000024
+ 8000274:	08000e40 	.word	0x08000e40
+
+08000278 <Flash_Erase>:
+}
+
+/**
+ * Clears The Application Bank, page index starts at 1
+ */
+void Flash_Erase(int start_page, int num_pages, int bank) {
+ 8000278:	b580      	push	{r7, lr}
+ 800027a:	b08a      	sub	sp, #40	@ 0x28
+ 800027c:	af00      	add	r7, sp, #0
+ 800027e:	60f8      	str	r0, [r7, #12]
+ 8000280:	60b9      	str	r1, [r7, #8]
+ 8000282:	607a      	str	r2, [r7, #4]
+  // Unlock flash before starting erase
+  if (HAL_FLASH_Unlock() != HAL_OK) {
+ 8000284:	f000 fa22 	bl	80006cc <HAL_FLASH_Unlock>
+ 8000288:	4603      	mov	r3, r0
+ 800028a:	2b00      	cmp	r3, #0
+ 800028c:	d128      	bne.n	80002e0 <Flash_Erase+0x68>
+    // Handle flash unlock error
+    return;
+  }
+
+  FLASH_EraseInitTypeDef eraseConfig;
+  uint32_t sectorError = 0;
+ 800028e:	2300      	movs	r3, #0
+ 8000290:	613b      	str	r3, [r7, #16]
+
+  eraseConfig.TypeErase = FLASH_TYPEERASE_PAGES;
+ 8000292:	2302      	movs	r3, #2
+ 8000294:	617b      	str	r3, [r7, #20]
+  switch(bank){
+ 8000296:	687b      	ldr	r3, [r7, #4]
+ 8000298:	2b01      	cmp	r3, #1
+ 800029a:	d003      	beq.n	80002a4 <Flash_Erase+0x2c>
+ 800029c:	687b      	ldr	r3, [r7, #4]
+ 800029e:	2b02      	cmp	r3, #2
+ 80002a0:	d003      	beq.n	80002aa <Flash_Erase+0x32>
+ 80002a2:	e004      	b.n	80002ae <Flash_Erase+0x36>
+  case 1:
+	  eraseConfig.Banks = FLASH_BANK_1;
+ 80002a4:	2301      	movs	r3, #1
+ 80002a6:	61bb      	str	r3, [r7, #24]
+	  break;
+ 80002a8:	e001      	b.n	80002ae <Flash_Erase+0x36>
+  case 2:
+	  eraseConfig.Banks = FLASH_BANK_2;
+ 80002aa:	2302      	movs	r3, #2
+ 80002ac:	61bb      	str	r3, [r7, #24]
+  }
+
+  eraseConfig.Page = start_page;             // Check if page numbering starts at 0 or 1.
+ 80002ae:	68fb      	ldr	r3, [r7, #12]
+ 80002b0:	61fb      	str	r3, [r7, #28]
+  eraseConfig.NbPages = num_pages; // Ensure this value matches your flash layout.
+ 80002b2:	68bb      	ldr	r3, [r7, #8]
+ 80002b4:	623b      	str	r3, [r7, #32]
+
+  HAL_StatusTypeDef status = HAL_FLASHEx_Erase(&eraseConfig, &sectorError);
+ 80002b6:	f107 0210 	add.w	r2, r7, #16
+ 80002ba:	f107 0314 	add.w	r3, r7, #20
+ 80002be:	4611      	mov	r1, r2
+ 80002c0:	4618      	mov	r0, r3
+ 80002c2:	f000 faff 	bl	80008c4 <HAL_FLASHEx_Erase>
+ 80002c6:	4603      	mov	r3, r0
+ 80002c8:	f887 3027 	strb.w	r3, [r7, #39]	@ 0x27
+  if (status != HAL_OK) {
+ 80002cc:	f897 3027 	ldrb.w	r3, [r7, #39]	@ 0x27
+ 80002d0:	2b00      	cmp	r3, #0
+ 80002d2:	d002      	beq.n	80002da <Flash_Erase+0x62>
+    // Optionally get the error code for debugging.
+    //uint32_t error = HAL_FLASH_GetError();
+    //printf("Flash erase error: 0x%08lX\r\n", (unsigned long)error);
+    // Handle error (for example, log the error code)
+    HAL_FLASH_Lock();
+ 80002d4:	f000 fa1c 	bl	8000710 <HAL_FLASH_Lock>
+    return;
+ 80002d8:	e003      	b.n	80002e2 <Flash_Erase+0x6a>
+  }
+
+  HAL_FLASH_Lock(); // Lock flash after erase
+ 80002da:	f000 fa19 	bl	8000710 <HAL_FLASH_Lock>
+ 80002de:	e000      	b.n	80002e2 <Flash_Erase+0x6a>
+    return;
+ 80002e0:	bf00      	nop
+}
+ 80002e2:	3728      	adds	r7, #40	@ 0x28
+ 80002e4:	46bd      	mov	sp, r7
+ 80002e6:	bd80      	pop	{r7, pc}
+
+080002e8 <Flash_Write>:
+
+void Flash_Write(uint32_t address, uint8_t *data, uint32_t length) {
+ 80002e8:	b580      	push	{r7, lr}
+ 80002ea:	b08a      	sub	sp, #40	@ 0x28
+ 80002ec:	af00      	add	r7, sp, #0
+ 80002ee:	60f8      	str	r0, [r7, #12]
+ 80002f0:	60b9      	str	r1, [r7, #8]
+ 80002f2:	607a      	str	r2, [r7, #4]
+  HAL_FLASH_Unlock(); // Unlock Flash
+ 80002f4:	f000 f9ea 	bl	80006cc <HAL_FLASH_Unlock>
+  // Example: Writing data in 16-byte (quadword) chunks
+  for (uint32_t i = 0; i < length; i += 16) {
+ 80002f8:	2300      	movs	r3, #0
+ 80002fa:	627b      	str	r3, [r7, #36]	@ 0x24
+ 80002fc:	e028      	b.n	8000350 <Flash_Write+0x68>
+    // Prepare a 16-byte (quadword) buffer
+    uint8_t quadBuf[16];
+    // Fill with 0xFF (or 0x00) to avoid uninitialized bytes
+    memset(quadBuf, 0xFF, sizeof(quadBuf));
+ 80002fe:	f107 0310 	add.w	r3, r7, #16
+ 8000302:	2210      	movs	r2, #16
+ 8000304:	21ff      	movs	r1, #255	@ 0xff
+ 8000306:	4618      	mov	r0, r3
+ 8000308:	f000 fd5f 	bl	8000dca <memset>
+
+    // Copy up to 16 bytes from 'data' into quadBuf
+    uint32_t chunkSize = (length - i) < 16 ? (length - i) : 16;
+ 800030c:	687a      	ldr	r2, [r7, #4]
+ 800030e:	6a7b      	ldr	r3, [r7, #36]	@ 0x24
+ 8000310:	1ad3      	subs	r3, r2, r3
+ 8000312:	2b10      	cmp	r3, #16
+ 8000314:	bf28      	it	cs
+ 8000316:	2310      	movcs	r3, #16
+ 8000318:	623b      	str	r3, [r7, #32]
+    memcpy(quadBuf, &data[i], chunkSize);
+ 800031a:	68ba      	ldr	r2, [r7, #8]
+ 800031c:	6a7b      	ldr	r3, [r7, #36]	@ 0x24
+ 800031e:	18d1      	adds	r1, r2, r3
+ 8000320:	f107 0310 	add.w	r3, r7, #16
+ 8000324:	6a3a      	ldr	r2, [r7, #32]
+ 8000326:	4618      	mov	r0, r3
+ 8000328:	f000 fd7c 	bl	8000e24 <memcpy>
+
+    // Program this 16-byte chunk
+    if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_QUADWORD, address + i,
+ 800032c:	68fa      	ldr	r2, [r7, #12]
+ 800032e:	6a7b      	ldr	r3, [r7, #36]	@ 0x24
+ 8000330:	4413      	add	r3, r2
+ 8000332:	f107 0210 	add.w	r2, r7, #16
+ 8000336:	4619      	mov	r1, r3
+ 8000338:	2001      	movs	r0, #1
+ 800033a:	f000 f97d 	bl	8000638 <HAL_FLASH_Program>
+ 800033e:	4603      	mov	r3, r0
+ 8000340:	2b00      	cmp	r3, #0
+ 8000342:	d002      	beq.n	800034a <Flash_Write+0x62>
+                          (uint32_t)quadBuf) != HAL_OK) {
+      HAL_FLASH_Lock();
+ 8000344:	f000 f9e4 	bl	8000710 <HAL_FLASH_Lock>
+ 8000348:	e008      	b.n	800035c <Flash_Write+0x74>
+  for (uint32_t i = 0; i < length; i += 16) {
+ 800034a:	6a7b      	ldr	r3, [r7, #36]	@ 0x24
+ 800034c:	3310      	adds	r3, #16
+ 800034e:	627b      	str	r3, [r7, #36]	@ 0x24
+ 8000350:	6a7a      	ldr	r2, [r7, #36]	@ 0x24
+ 8000352:	687b      	ldr	r3, [r7, #4]
+ 8000354:	429a      	cmp	r2, r3
+ 8000356:	d3d2      	bcc.n	80002fe <Flash_Write+0x16>
+      return; // Errorhandling
+    }
+  }
+
+  HAL_FLASH_Lock(); // Lock Flash
+ 8000358:	f000 f9da 	bl	8000710 <HAL_FLASH_Lock>
+}
+ 800035c:	3728      	adds	r7, #40	@ 0x28
+ 800035e:	46bd      	mov	sp, r7
+ 8000360:	bd80      	pop	{r7, pc}
+	...
+
+08000364 <main>:
+/**
+  * @brief  Bootloader entry point. On restart, the reset vector is initialized to enter here.
+  * @retval int
+  */
+int main(void)
+{
+ 8000364:	b580      	push	{r7, lr}
+ 8000366:	b082      	sub	sp, #8
+ 8000368:	af00      	add	r7, sp, #0
+  /* USER CODE BEGIN 1 */
+	while(1){
+		//Simulate_FDCAN_Receive(data, data_len);
+		//Copy to bank 2 if boot flag is true
+		if ((*(uint32_t*)BOOT_FLAG_ADD) == BOOT_FLAG) {
+ 800036a:	4b14      	ldr	r3, [pc, #80]	@ (80003bc <main+0x58>)
+ 800036c:	681b      	ldr	r3, [r3, #0]
+ 800036e:	4a14      	ldr	r2, [pc, #80]	@ (80003c0 <main+0x5c>)
+ 8000370:	4293      	cmp	r3, r2
+ 8000372:	d10b      	bne.n	800038c <main+0x28>
+			Flash_Erase(1,128,2); //wipe bank2 before writing to avoid artifacts
+ 8000374:	2202      	movs	r2, #2
+ 8000376:	2180      	movs	r1, #128	@ 0x80
+ 8000378:	2001      	movs	r0, #1
+ 800037a:	f7ff ff7d 	bl	8000278 <Flash_Erase>
+			Flash_Write(APP_DEFAULT_ADD, (uint8_t *)APP_LOAD_ADD, APP_MAX_SIZE);
+ 800037e:	f44f 2260 	mov.w	r2, #917504	@ 0xe0000
+ 8000382:	4910      	ldr	r1, [pc, #64]	@ (80003c4 <main+0x60>)
+ 8000384:	f04f 6001 	mov.w	r0, #135266304	@ 0x8100000
+ 8000388:	f7ff ffae 	bl	80002e8 <Flash_Write>
+		}
+		//Jump to application
+		//SCB->VTOR = APP_DEFAULT_ADD;
+		uint32_t sp = *(__IO uint32_t*) APP_DEFAULT_ADD;
+ 800038c:	f04f 6301 	mov.w	r3, #135266304	@ 0x8100000
+ 8000390:	681b      	ldr	r3, [r3, #0]
+ 8000392:	607b      	str	r3, [r7, #4]
+		if (sp >= MEM_LOWER_BOUND && sp <= MEM_UPPER_BOUND){
+ 8000394:	687b      	ldr	r3, [r7, #4]
+ 8000396:	f1b3 5f00 	cmp.w	r3, #536870912	@ 0x20000000
+ 800039a:	d3e6      	bcc.n	800036a <main+0x6>
+ 800039c:	687b      	ldr	r3, [r7, #4]
+ 800039e:	4a0a      	ldr	r2, [pc, #40]	@ (80003c8 <main+0x64>)
+ 80003a0:	4293      	cmp	r3, r2
+ 80003a2:	d8e2      	bhi.n	800036a <main+0x6>
+			__set_MSP(*(__IO uint32_t *)APP_DEFAULT_ADD);
+ 80003a4:	f04f 6301 	mov.w	r3, #135266304	@ 0x8100000
+ 80003a8:	681b      	ldr	r3, [r3, #0]
+ 80003aa:	603b      	str	r3, [r7, #0]
+  \details Assigns the given value to the Main Stack Pointer (MSP).
+  \param [in]    topOfMainStack  Main Stack Pointer value to set
+ */
+__STATIC_FORCEINLINE void __set_MSP(uint32_t topOfMainStack)
+{
+  __ASM volatile ("MSR msp, %0" : : "r" (topOfMainStack) : );
+ 80003ac:	683b      	ldr	r3, [r7, #0]
+ 80003ae:	f383 8808 	msr	MSP, r3
+}
+ 80003b2:	bf00      	nop
+			((pFunction)(*(__IO uint32_t *)(APP_DEFAULT_ADD + 4)))();
+ 80003b4:	4b05      	ldr	r3, [pc, #20]	@ (80003cc <main+0x68>)
+ 80003b6:	681b      	ldr	r3, [r3, #0]
+ 80003b8:	4798      	blx	r3
+	while(1){
+ 80003ba:	e7d6      	b.n	800036a <main+0x6>
+ 80003bc:	0801e000 	.word	0x0801e000
+ 80003c0:	deadbeef 	.word	0xdeadbeef
+ 80003c4:	08020000 	.word	0x08020000
+ 80003c8:	200c0000 	.word	0x200c0000
+ 80003cc:	08100004 	.word	0x08100004
+
+080003d0 <HAL_TIM_PeriodElapsedCallback>:
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+ 80003d0:	b580      	push	{r7, lr}
+ 80003d2:	b082      	sub	sp, #8
+ 80003d4:	af00      	add	r7, sp, #0
+ 80003d6:	6078      	str	r0, [r7, #4]
+  /* USER CODE BEGIN Callback 0 */
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM17) {
+ 80003d8:	687b      	ldr	r3, [r7, #4]
+ 80003da:	681b      	ldr	r3, [r3, #0]
+ 80003dc:	4a04      	ldr	r2, [pc, #16]	@ (80003f0 <HAL_TIM_PeriodElapsedCallback+0x20>)
+ 80003de:	4293      	cmp	r3, r2
+ 80003e0:	d101      	bne.n	80003e6 <HAL_TIM_PeriodElapsedCallback+0x16>
+    HAL_IncTick();
+ 80003e2:	f000 f8c1 	bl	8000568 <HAL_IncTick>
+  }
+  /* USER CODE BEGIN Callback 1 */
+  /* USER CODE END Callback 1 */
+}
+ 80003e6:	bf00      	nop
+ 80003e8:	3708      	adds	r7, #8
+ 80003ea:	46bd      	mov	sp, r7
+ 80003ec:	bd80      	pop	{r7, pc}
+ 80003ee:	bf00      	nop
+ 80003f0:	40014800 	.word	0x40014800
+
+080003f4 <NMI_Handler>:
+/******************************************************************************/
+/**
+  * @brief This function handles Non maskable interrupt.
+  */
+void NMI_Handler(void)
+{
+ 80003f4:	b480      	push	{r7}
+ 80003f6:	af00      	add	r7, sp, #0
+  /* USER CODE BEGIN NonMaskableInt_IRQn 0 */
+
+  /* USER CODE END NonMaskableInt_IRQn 0 */
+  /* USER CODE BEGIN NonMaskableInt_IRQn 1 */
+   while (1)
+ 80003f8:	bf00      	nop
+ 80003fa:	e7fd      	b.n	80003f8 <NMI_Handler+0x4>
+
+080003fc <HardFault_Handler>:
+
+/**
+  * @brief This function handles Hard fault interrupt.
+  */
+void HardFault_Handler(void)
+{
+ 80003fc:	b480      	push	{r7}
+ 80003fe:	af00      	add	r7, sp, #0
+  /* USER CODE BEGIN HardFault_IRQn 0 */
+
+  /* USER CODE END HardFault_IRQn 0 */
+  while (1)
+ 8000400:	bf00      	nop
+ 8000402:	e7fd      	b.n	8000400 <HardFault_Handler+0x4>
+
+08000404 <MemManage_Handler>:
+
+/**
+  * @brief This function handles Memory management fault.
+  */
+void MemManage_Handler(void)
+{
+ 8000404:	b480      	push	{r7}
+ 8000406:	af00      	add	r7, sp, #0
+  /* USER CODE BEGIN MemoryManagement_IRQn 0 */
+
+  /* USER CODE END MemoryManagement_IRQn 0 */
+  while (1)
+ 8000408:	bf00      	nop
+ 800040a:	e7fd      	b.n	8000408 <MemManage_Handler+0x4>
+
+0800040c <BusFault_Handler>:
+
+/**
+  * @brief This function handles Prefetch fault, memory access fault.
+  */
+void BusFault_Handler(void)
+{
+ 800040c:	b480      	push	{r7}
+ 800040e:	af00      	add	r7, sp, #0
+  /* USER CODE BEGIN BusFault_IRQn 0 */
+
+  /* USER CODE END BusFault_IRQn 0 */
+  while (1)
+ 8000410:	bf00      	nop
+ 8000412:	e7fd      	b.n	8000410 <BusFault_Handler+0x4>
+
+08000414 <UsageFault_Handler>:
+
+/**
+  * @brief This function handles Undefined instruction or illegal state.
+  */
+void UsageFault_Handler(void)
+{
+ 8000414:	b480      	push	{r7}
+ 8000416:	af00      	add	r7, sp, #0
+  /* USER CODE BEGIN UsageFault_IRQn 0 */
+
+  /* USER CODE END UsageFault_IRQn 0 */
+  while (1)
+ 8000418:	bf00      	nop
+ 800041a:	e7fd      	b.n	8000418 <UsageFault_Handler+0x4>
+
+0800041c <SVC_Handler>:
+
+/**
+  * @brief This function handles System service call via SWI instruction.
+  */
+void SVC_Handler(void)
+{
+ 800041c:	b480      	push	{r7}
+ 800041e:	af00      	add	r7, sp, #0
+
+  /* USER CODE END SVCall_IRQn 0 */
+  /* USER CODE BEGIN SVCall_IRQn 1 */
+
+  /* USER CODE END SVCall_IRQn 1 */
+}
+ 8000420:	bf00      	nop
+ 8000422:	46bd      	mov	sp, r7
+ 8000424:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000428:	4770      	bx	lr
+
+0800042a <DebugMon_Handler>:
+
+/**
+  * @brief This function handles Debug monitor.
+  */
+void DebugMon_Handler(void)
+{
+ 800042a:	b480      	push	{r7}
+ 800042c:	af00      	add	r7, sp, #0
+
+  /* USER CODE END DebugMonitor_IRQn 0 */
+  /* USER CODE BEGIN DebugMonitor_IRQn 1 */
+
+  /* USER CODE END DebugMonitor_IRQn 1 */
+}
+ 800042e:	bf00      	nop
+ 8000430:	46bd      	mov	sp, r7
+ 8000432:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000436:	4770      	bx	lr
+
+08000438 <PendSV_Handler>:
+
+/**
+  * @brief This function handles Pendable request for system service.
+  */
+void PendSV_Handler(void)
+{
+ 8000438:	b480      	push	{r7}
+ 800043a:	af00      	add	r7, sp, #0
+
+  /* USER CODE END PendSV_IRQn 0 */
+  /* USER CODE BEGIN PendSV_IRQn 1 */
+
+  /* USER CODE END PendSV_IRQn 1 */
+}
+ 800043c:	bf00      	nop
+ 800043e:	46bd      	mov	sp, r7
+ 8000440:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000444:	4770      	bx	lr
+
+08000446 <SysTick_Handler>:
+
+/**
+  * @brief This function handles System tick timer.
+  */
+void SysTick_Handler(void)
+{
+ 8000446:	b480      	push	{r7}
+ 8000448:	af00      	add	r7, sp, #0
+  /* USER CODE END SysTick_IRQn 0 */
+
+  /* USER CODE BEGIN SysTick_IRQn 1 */
+
+  /* USER CODE END SysTick_IRQn 1 */
+}
+ 800044a:	bf00      	nop
+ 800044c:	46bd      	mov	sp, r7
+ 800044e:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000452:	4770      	bx	lr
+
+08000454 <EXTI13_IRQHandler>:
+
+/**
+  * @brief This function handles EXTI Line13 interrupt.
+  */
+void EXTI13_IRQHandler(void)
+{
+ 8000454:	b580      	push	{r7, lr}
+ 8000456:	af00      	add	r7, sp, #0
+  /* USER CODE BEGIN EXTI13_IRQn 0 */
+
+  /* USER CODE END EXTI13_IRQn 0 */
+  BSP_PB_IRQHandler(BUTTON_USER);
+ 8000458:	2000      	movs	r0, #0
+ 800045a:	f000 f86f 	bl	800053c <BSP_PB_IRQHandler>
+  /* USER CODE BEGIN EXTI13_IRQn 1 */
+
+  /* USER CODE END EXTI13_IRQn 1 */
+}
+ 800045e:	bf00      	nop
+ 8000460:	bd80      	pop	{r7, pc}
+	...
+
+08000464 <TIM17_IRQHandler>:
+
+/**
+  * @brief This function handles TIM17 global interrupt.
+  */
+void TIM17_IRQHandler(void)
+{
+ 8000464:	b580      	push	{r7, lr}
+ 8000466:	af00      	add	r7, sp, #0
+  /* USER CODE BEGIN TIM17_IRQn 0 */
+
+  /* USER CODE END TIM17_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim17);
+ 8000468:	4802      	ldr	r0, [pc, #8]	@ (8000474 <TIM17_IRQHandler+0x10>)
+ 800046a:	f000 faf1 	bl	8000a50 <HAL_TIM_IRQHandler>
+  /* USER CODE BEGIN TIM17_IRQn 1 */
+
+  /* USER CODE END TIM17_IRQn 1 */
+}
+ 800046e:	bf00      	nop
+ 8000470:	bd80      	pop	{r7, pc}
+ 8000472:	bf00      	nop
+ 8000474:	2000003c 	.word	0x2000003c
+
+08000478 <SystemInit>:
+  * @param  None
+  * @retval None
+  */
+
+void SystemInit(void)
+{
+ 8000478:	b480      	push	{r7}
+ 800047a:	af00      	add	r7, sp, #0
+  /* FPU settings ------------------------------------------------------------*/
+  #if (__FPU_PRESENT == 1) && (__FPU_USED == 1)
+   SCB->CPACR |= ((3UL << 20U)|(3UL << 22U));  /* set CP10 and CP11 Full Access */
+ 800047c:	4b18      	ldr	r3, [pc, #96]	@ (80004e0 <SystemInit+0x68>)
+ 800047e:	f8d3 3088 	ldr.w	r3, [r3, #136]	@ 0x88
+ 8000482:	4a17      	ldr	r2, [pc, #92]	@ (80004e0 <SystemInit+0x68>)
+ 8000484:	f443 0370 	orr.w	r3, r3, #15728640	@ 0xf00000
+ 8000488:	f8c2 3088 	str.w	r3, [r2, #136]	@ 0x88
+  #endif
+
+  /* Reset the RCC clock configuration to the default reset state ------------*/
+  /* Set MSION bit */
+  RCC->CR = RCC_CR_MSISON;
+ 800048c:	4b15      	ldr	r3, [pc, #84]	@ (80004e4 <SystemInit+0x6c>)
+ 800048e:	2201      	movs	r2, #1
+ 8000490:	601a      	str	r2, [r3, #0]
+
+  /* Reset CFGR register */
+  RCC->CFGR1 = 0U;
+ 8000492:	4b14      	ldr	r3, [pc, #80]	@ (80004e4 <SystemInit+0x6c>)
+ 8000494:	2200      	movs	r2, #0
+ 8000496:	61da      	str	r2, [r3, #28]
+  RCC->CFGR2 = 0U;
+ 8000498:	4b12      	ldr	r3, [pc, #72]	@ (80004e4 <SystemInit+0x6c>)
+ 800049a:	2200      	movs	r2, #0
+ 800049c:	621a      	str	r2, [r3, #32]
+  RCC->CFGR3 = 0U;
+ 800049e:	4b11      	ldr	r3, [pc, #68]	@ (80004e4 <SystemInit+0x6c>)
+ 80004a0:	2200      	movs	r2, #0
+ 80004a2:	625a      	str	r2, [r3, #36]	@ 0x24
+
+  /* Reset HSEON, CSSON , HSION, PLLxON bits */
+  RCC->CR &= ~(RCC_CR_HSEON | RCC_CR_CSSON | RCC_CR_PLL1ON | RCC_CR_PLL2ON | RCC_CR_PLL3ON);
+ 80004a4:	4b0f      	ldr	r3, [pc, #60]	@ (80004e4 <SystemInit+0x6c>)
+ 80004a6:	681b      	ldr	r3, [r3, #0]
+ 80004a8:	4a0e      	ldr	r2, [pc, #56]	@ (80004e4 <SystemInit+0x6c>)
+ 80004aa:	f023 53a8 	bic.w	r3, r3, #352321536	@ 0x15000000
+ 80004ae:	f423 2310 	bic.w	r3, r3, #589824	@ 0x90000
+ 80004b2:	6013      	str	r3, [r2, #0]
+
+  /* Reset PLLCFGR register */
+  RCC->PLL1CFGR = 0U;
+ 80004b4:	4b0b      	ldr	r3, [pc, #44]	@ (80004e4 <SystemInit+0x6c>)
+ 80004b6:	2200      	movs	r2, #0
+ 80004b8:	629a      	str	r2, [r3, #40]	@ 0x28
+
+  /* Reset HSEBYP bit */
+  RCC->CR &= ~(RCC_CR_HSEBYP);
+ 80004ba:	4b0a      	ldr	r3, [pc, #40]	@ (80004e4 <SystemInit+0x6c>)
+ 80004bc:	681b      	ldr	r3, [r3, #0]
+ 80004be:	4a09      	ldr	r2, [pc, #36]	@ (80004e4 <SystemInit+0x6c>)
+ 80004c0:	f423 2380 	bic.w	r3, r3, #262144	@ 0x40000
+ 80004c4:	6013      	str	r3, [r2, #0]
+
+  /* Disable all interrupts */
+  RCC->CIER = 0U;
+ 80004c6:	4b07      	ldr	r3, [pc, #28]	@ (80004e4 <SystemInit+0x6c>)
+ 80004c8:	2200      	movs	r2, #0
+ 80004ca:	651a      	str	r2, [r3, #80]	@ 0x50
+
+  /* Configure the Vector Table location add offset address ------------------*/
+  #ifdef VECT_TAB_SRAM
+    SCB->VTOR = SRAM1_BASE | VECT_TAB_OFFSET; /* Vector Table Relocation in Internal SRAM */
+  #else
+    SCB->VTOR = FLASH_BASE | VECT_TAB_OFFSET; /* Vector Table Relocation in Internal FLASH */
+ 80004cc:	4b04      	ldr	r3, [pc, #16]	@ (80004e0 <SystemInit+0x68>)
+ 80004ce:	f04f 6200 	mov.w	r2, #134217728	@ 0x8000000
+ 80004d2:	609a      	str	r2, [r3, #8]
+  #endif
+}
+ 80004d4:	bf00      	nop
+ 80004d6:	46bd      	mov	sp, r7
+ 80004d8:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 80004dc:	4770      	bx	lr
+ 80004de:	bf00      	nop
+ 80004e0:	e000ed00 	.word	0xe000ed00
+ 80004e4:	46020c00 	.word	0x46020c00
+
+080004e8 <Reset_Handler>:
+
+    .section	.text.Reset_Handler
+	.weak	Reset_Handler
+	.type	Reset_Handler, %function
+Reset_Handler:
+  ldr   sp, =_estack    /* set stack pointer */
+ 80004e8:	f8df d034 	ldr.w	sp, [pc, #52]	@ 8000520 <LoopForever+0x2>
+/* Call the clock system initialization function.*/
+  bl  SystemInit
+ 80004ec:	f7ff ffc4 	bl	8000478 <SystemInit>
+
+/* Copy the data segment initializers from flash to SRAM */
+  movs	r1, #0
+ 80004f0:	2100      	movs	r1, #0
+  b	LoopCopyDataInit
+ 80004f2:	e003      	b.n	80004fc <LoopCopyDataInit>
+
+080004f4 <CopyDataInit>:
+
+CopyDataInit:
+	ldr	r3, =_sidata
+ 80004f4:	4b0b      	ldr	r3, [pc, #44]	@ (8000524 <LoopForever+0x6>)
+	ldr	r3, [r3, r1]
+ 80004f6:	585b      	ldr	r3, [r3, r1]
+	str	r3, [r0, r1]
+ 80004f8:	5043      	str	r3, [r0, r1]
+	adds	r1, r1, #4
+ 80004fa:	3104      	adds	r1, #4
+
+080004fc <LoopCopyDataInit>:
+
+LoopCopyDataInit:
+	ldr	r0, =_sdata
+ 80004fc:	480a      	ldr	r0, [pc, #40]	@ (8000528 <LoopForever+0xa>)
+	ldr	r3, =_edata
+ 80004fe:	4b0b      	ldr	r3, [pc, #44]	@ (800052c <LoopForever+0xe>)
+	adds	r2, r0, r1
+ 8000500:	1842      	adds	r2, r0, r1
+	cmp	r2, r3
+ 8000502:	429a      	cmp	r2, r3
+	bcc	CopyDataInit
+ 8000504:	d3f6      	bcc.n	80004f4 <CopyDataInit>
+	ldr	r2, =_sbss
+ 8000506:	4a0a      	ldr	r2, [pc, #40]	@ (8000530 <LoopForever+0x12>)
+	b	LoopFillZerobss
+ 8000508:	e002      	b.n	8000510 <LoopFillZerobss>
+
+0800050a <FillZerobss>:
+/* Zero fill the bss segment. */
+FillZerobss:
+	movs	r3, #0
+ 800050a:	2300      	movs	r3, #0
+	str	r3, [r2], #4
+ 800050c:	f842 3b04 	str.w	r3, [r2], #4
+
+08000510 <LoopFillZerobss>:
+
+LoopFillZerobss:
+	ldr	r3, = _ebss
+ 8000510:	4b08      	ldr	r3, [pc, #32]	@ (8000534 <LoopForever+0x16>)
+	cmp	r2, r3
+ 8000512:	429a      	cmp	r2, r3
+	bcc	FillZerobss
+ 8000514:	d3f9      	bcc.n	800050a <FillZerobss>
+
+/* Call static constructors */
+    bl __libc_init_array
+ 8000516:	f000 fc61 	bl	8000ddc <__libc_init_array>
+/* Call the application's entry point.*/
+/* bl bootloader_enter */
+	bl	main
+ 800051a:	f7ff ff23 	bl	8000364 <main>
+
+0800051e <LoopForever>:
+
+LoopForever:
+    b LoopForever
+ 800051e:	e7fe      	b.n	800051e <LoopForever>
+  ldr   sp, =_estack    /* set stack pointer */
+ 8000520:	200c0000 	.word	0x200c0000
+	ldr	r3, =_sidata
+ 8000524:	08000e60 	.word	0x08000e60
+	ldr	r0, =_sdata
+ 8000528:	20000000 	.word	0x20000000
+	ldr	r3, =_edata
+ 800052c:	20000020 	.word	0x20000020
+	ldr	r2, =_sbss
+ 8000530:	20000020 	.word	0x20000020
+	ldr	r3, = _ebss
+ 8000534:	20000098 	.word	0x20000098
+
+08000538 <ADC1_IRQHandler>:
+ * @retval : None
+*/
+    .section	.text.Default_Handler,"ax",%progbits
+Default_Handler:
+Infinite_Loop:
+	b	Infinite_Loop
+ 8000538:	e7fe      	b.n	8000538 <ADC1_IRQHandler>
+	...
+
+0800053c <BSP_PB_IRQHandler>:
+  * @brief  BSP Button IRQ handler
+  * @param  Button Can only be BUTTON_USER
+  * @retval None
+  */
+void BSP_PB_IRQHandler(Button_TypeDef Button)
+{
+ 800053c:	b580      	push	{r7, lr}
+ 800053e:	b082      	sub	sp, #8
+ 8000540:	af00      	add	r7, sp, #0
+ 8000542:	4603      	mov	r3, r0
+ 8000544:	71fb      	strb	r3, [r7, #7]
+  HAL_EXTI_IRQHandler(&hpb_exti[Button]);
+ 8000546:	79fa      	ldrb	r2, [r7, #7]
+ 8000548:	4613      	mov	r3, r2
+ 800054a:	005b      	lsls	r3, r3, #1
+ 800054c:	4413      	add	r3, r2
+ 800054e:	009b      	lsls	r3, r3, #2
+ 8000550:	4a04      	ldr	r2, [pc, #16]	@ (8000564 <BSP_PB_IRQHandler+0x28>)
+ 8000552:	4413      	add	r3, r2
+ 8000554:	4618      	mov	r0, r3
+ 8000556:	f000 f827 	bl	80005a8 <HAL_EXTI_IRQHandler>
+}
+ 800055a:	bf00      	nop
+ 800055c:	3708      	adds	r7, #8
+ 800055e:	46bd      	mov	sp, r7
+ 8000560:	bd80      	pop	{r7, pc}
+ 8000562:	bf00      	nop
+ 8000564:	20000088 	.word	0x20000088
+
+08000568 <HAL_IncTick>:
+  * @note This function is declared as __weak to be overwritten in case of other
+  *      implementations in user file.
+  * @retval None
+  */
+__weak void HAL_IncTick(void)
+{
+ 8000568:	b480      	push	{r7}
+ 800056a:	af00      	add	r7, sp, #0
+  uwTick += (uint32_t)uwTickFreq;
+ 800056c:	4b06      	ldr	r3, [pc, #24]	@ (8000588 <HAL_IncTick+0x20>)
+ 800056e:	781b      	ldrb	r3, [r3, #0]
+ 8000570:	461a      	mov	r2, r3
+ 8000572:	4b06      	ldr	r3, [pc, #24]	@ (800058c <HAL_IncTick+0x24>)
+ 8000574:	681b      	ldr	r3, [r3, #0]
+ 8000576:	4413      	add	r3, r2
+ 8000578:	4a04      	ldr	r2, [pc, #16]	@ (800058c <HAL_IncTick+0x24>)
+ 800057a:	6013      	str	r3, [r2, #0]
+}
+ 800057c:	bf00      	nop
+ 800057e:	46bd      	mov	sp, r7
+ 8000580:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000584:	4770      	bx	lr
+ 8000586:	bf00      	nop
+ 8000588:	20000000 	.word	0x20000000
+ 800058c:	20000094 	.word	0x20000094
+
+08000590 <HAL_GetTick>:
+  * @note This function is declared as __weak to be overwritten in case of other
+  *       implementations in user file.
+  * @retval tick value
+  */
+__weak uint32_t HAL_GetTick(void)
+{
+ 8000590:	b480      	push	{r7}
+ 8000592:	af00      	add	r7, sp, #0
+  return uwTick;
+ 8000594:	4b03      	ldr	r3, [pc, #12]	@ (80005a4 <HAL_GetTick+0x14>)
+ 8000596:	681b      	ldr	r3, [r3, #0]
+}
+ 8000598:	4618      	mov	r0, r3
+ 800059a:	46bd      	mov	sp, r7
+ 800059c:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 80005a0:	4770      	bx	lr
+ 80005a2:	bf00      	nop
+ 80005a4:	20000094 	.word	0x20000094
+
+080005a8 <HAL_EXTI_IRQHandler>:
+  * @brief  Handle EXTI interrupt request.
+  * @param  hexti Exti handle.
+  * @retval none.
+  */
+void HAL_EXTI_IRQHandler(const EXTI_HandleTypeDef *hexti)
+{
+ 80005a8:	b580      	push	{r7, lr}
+ 80005aa:	b086      	sub	sp, #24
+ 80005ac:	af00      	add	r7, sp, #0
+ 80005ae:	6078      	str	r0, [r7, #4]
+  uint32_t regval;
+  uint32_t maskline;
+  uint32_t offset;
+
+  /* Compute line register offset and line mask */
+  offset = ((hexti->Line & EXTI_REG_MASK) >> EXTI_REG_SHIFT);
+ 80005b0:	687b      	ldr	r3, [r7, #4]
+ 80005b2:	681b      	ldr	r3, [r3, #0]
+ 80005b4:	0c1b      	lsrs	r3, r3, #16
+ 80005b6:	f003 0301 	and.w	r3, r3, #1
+ 80005ba:	617b      	str	r3, [r7, #20]
+  maskline = (1UL << (hexti->Line & EXTI_PIN_MASK));
+ 80005bc:	687b      	ldr	r3, [r7, #4]
+ 80005be:	681b      	ldr	r3, [r3, #0]
+ 80005c0:	f003 031f 	and.w	r3, r3, #31
+ 80005c4:	2201      	movs	r2, #1
+ 80005c6:	fa02 f303 	lsl.w	r3, r2, r3
+ 80005ca:	613b      	str	r3, [r7, #16]
+
+  /* Get rising edge pending bit  */
+  regaddr = (__IO uint32_t *)(&EXTI->RPR1 + (EXTI_CONFIG_OFFSET * offset));
+ 80005cc:	697b      	ldr	r3, [r7, #20]
+ 80005ce:	015a      	lsls	r2, r3, #5
+ 80005d0:	4b17      	ldr	r3, [pc, #92]	@ (8000630 <HAL_EXTI_IRQHandler+0x88>)
+ 80005d2:	4413      	add	r3, r2
+ 80005d4:	60fb      	str	r3, [r7, #12]
+  regval = (*regaddr & maskline);
+ 80005d6:	68fb      	ldr	r3, [r7, #12]
+ 80005d8:	681b      	ldr	r3, [r3, #0]
+ 80005da:	693a      	ldr	r2, [r7, #16]
+ 80005dc:	4013      	ands	r3, r2
+ 80005de:	60bb      	str	r3, [r7, #8]
+
+  if (regval != 0U)
+ 80005e0:	68bb      	ldr	r3, [r7, #8]
+ 80005e2:	2b00      	cmp	r3, #0
+ 80005e4:	d009      	beq.n	80005fa <HAL_EXTI_IRQHandler+0x52>
+  {
+    /* Clear pending bit */
+    *regaddr = maskline;
+ 80005e6:	68fb      	ldr	r3, [r7, #12]
+ 80005e8:	693a      	ldr	r2, [r7, #16]
+ 80005ea:	601a      	str	r2, [r3, #0]
+
+    /* Call rising callback */
+    if (hexti->RisingCallback != NULL)
+ 80005ec:	687b      	ldr	r3, [r7, #4]
+ 80005ee:	685b      	ldr	r3, [r3, #4]
+ 80005f0:	2b00      	cmp	r3, #0
+ 80005f2:	d002      	beq.n	80005fa <HAL_EXTI_IRQHandler+0x52>
+    {
+      hexti->RisingCallback();
+ 80005f4:	687b      	ldr	r3, [r7, #4]
+ 80005f6:	685b      	ldr	r3, [r3, #4]
+ 80005f8:	4798      	blx	r3
+    }
+  }
+
+  /* Get falling edge pending bit  */
+  regaddr = (__IO uint32_t *)(&EXTI->FPR1 + (EXTI_CONFIG_OFFSET * offset));
+ 80005fa:	697b      	ldr	r3, [r7, #20]
+ 80005fc:	015a      	lsls	r2, r3, #5
+ 80005fe:	4b0d      	ldr	r3, [pc, #52]	@ (8000634 <HAL_EXTI_IRQHandler+0x8c>)
+ 8000600:	4413      	add	r3, r2
+ 8000602:	60fb      	str	r3, [r7, #12]
+  regval = (*regaddr & maskline);
+ 8000604:	68fb      	ldr	r3, [r7, #12]
+ 8000606:	681b      	ldr	r3, [r3, #0]
+ 8000608:	693a      	ldr	r2, [r7, #16]
+ 800060a:	4013      	ands	r3, r2
+ 800060c:	60bb      	str	r3, [r7, #8]
+
+  if (regval != 0U)
+ 800060e:	68bb      	ldr	r3, [r7, #8]
+ 8000610:	2b00      	cmp	r3, #0
+ 8000612:	d009      	beq.n	8000628 <HAL_EXTI_IRQHandler+0x80>
+  {
+    /* Clear pending bit */
+    *regaddr = maskline;
+ 8000614:	68fb      	ldr	r3, [r7, #12]
+ 8000616:	693a      	ldr	r2, [r7, #16]
+ 8000618:	601a      	str	r2, [r3, #0]
+
+    /* Call rising callback */
+    if (hexti->FallingCallback != NULL)
+ 800061a:	687b      	ldr	r3, [r7, #4]
+ 800061c:	689b      	ldr	r3, [r3, #8]
+ 800061e:	2b00      	cmp	r3, #0
+ 8000620:	d002      	beq.n	8000628 <HAL_EXTI_IRQHandler+0x80>
+    {
+      hexti->FallingCallback();
+ 8000622:	687b      	ldr	r3, [r7, #4]
+ 8000624:	689b      	ldr	r3, [r3, #8]
+ 8000626:	4798      	blx	r3
+    }
+  }
+}
+ 8000628:	bf00      	nop
+ 800062a:	3718      	adds	r7, #24
+ 800062c:	46bd      	mov	sp, r7
+ 800062e:	bd80      	pop	{r7, pc}
+ 8000630:	4602200c 	.word	0x4602200c
+ 8000634:	46022010 	.word	0x46022010
+
+08000638 <HAL_FLASH_Program>:
+  *         This parameter shall be 32-bit aligned
+  *
+  * @retval HAL Status
+  */
+HAL_StatusTypeDef HAL_FLASH_Program(uint32_t TypeProgram, uint32_t Address, uint32_t DataAddress)
+{
+ 8000638:	b580      	push	{r7, lr}
+ 800063a:	b086      	sub	sp, #24
+ 800063c:	af00      	add	r7, sp, #0
+ 800063e:	60f8      	str	r0, [r7, #12]
+ 8000640:	60b9      	str	r1, [r7, #8]
+ 8000642:	607a      	str	r2, [r7, #4]
+
+  /* Check the parameters */
+  assert_param(IS_FLASH_TYPEPROGRAM(TypeProgram));
+
+  /* Process Locked */
+  __HAL_LOCK(&pFlash);
+ 8000644:	4b1f      	ldr	r3, [pc, #124]	@ (80006c4 <HAL_FLASH_Program+0x8c>)
+ 8000646:	781b      	ldrb	r3, [r3, #0]
+ 8000648:	2b01      	cmp	r3, #1
+ 800064a:	d101      	bne.n	8000650 <HAL_FLASH_Program+0x18>
+ 800064c:	2302      	movs	r3, #2
+ 800064e:	e034      	b.n	80006ba <HAL_FLASH_Program+0x82>
+ 8000650:	4b1c      	ldr	r3, [pc, #112]	@ (80006c4 <HAL_FLASH_Program+0x8c>)
+ 8000652:	2201      	movs	r2, #1
+ 8000654:	701a      	strb	r2, [r3, #0]
+
+  /* Reset error code */
+  pFlash.ErrorCode = HAL_FLASH_ERROR_NONE;
+ 8000656:	4b1b      	ldr	r3, [pc, #108]	@ (80006c4 <HAL_FLASH_Program+0x8c>)
+ 8000658:	2200      	movs	r2, #0
+ 800065a:	605a      	str	r2, [r3, #4]
+
+  /* Wait for last operation to be completed */
+  status = FLASH_WaitForLastOperation(FLASH_TIMEOUT_VALUE);
+ 800065c:	f44f 707a 	mov.w	r0, #1000	@ 0x3e8
+ 8000660:	f000 f870 	bl	8000744 <FLASH_WaitForLastOperation>
+ 8000664:	4603      	mov	r3, r0
+ 8000666:	75fb      	strb	r3, [r7, #23]
+
+  if (status == HAL_OK)
+ 8000668:	7dfb      	ldrb	r3, [r7, #23]
+ 800066a:	2b00      	cmp	r3, #0
+ 800066c:	d121      	bne.n	80006b2 <HAL_FLASH_Program+0x7a>
+  {
+    /* Set current operation type */
+    pFlash.ProcedureOnGoing = TypeProgram;
+ 800066e:	4a15      	ldr	r2, [pc, #84]	@ (80006c4 <HAL_FLASH_Program+0x8c>)
+ 8000670:	68fb      	ldr	r3, [r7, #12]
+ 8000672:	6093      	str	r3, [r2, #8]
+
+    /* Access to SECCR or NSCR depends on operation type */
+    reg_cr = IS_FLASH_SECURE_OPERATION() ? &(FLASH->SECCR) : &(FLASH_NS->NSCR);
+ 8000674:	4b14      	ldr	r3, [pc, #80]	@ (80006c8 <HAL_FLASH_Program+0x90>)
+ 8000676:	613b      	str	r3, [r7, #16]
+
+    if ((TypeProgram & (~FLASH_NON_SECURE_MASK)) == FLASH_TYPEPROGRAM_QUADWORD)
+ 8000678:	68fb      	ldr	r3, [r7, #12]
+ 800067a:	f023 4300 	bic.w	r3, r3, #2147483648	@ 0x80000000
+ 800067e:	2b01      	cmp	r3, #1
+ 8000680:	d104      	bne.n	800068c <HAL_FLASH_Program+0x54>
+    {
+      /* Program a quad-word (128-bit) at a specified address */
+      FLASH_Program_QuadWord(Address, DataAddress);
+ 8000682:	6879      	ldr	r1, [r7, #4]
+ 8000684:	68b8      	ldr	r0, [r7, #8]
+ 8000686:	f000 f8a3 	bl	80007d0 <FLASH_Program_QuadWord>
+ 800068a:	e003      	b.n	8000694 <HAL_FLASH_Program+0x5c>
+    }
+    else
+    {
+      /* Program a burst of 8 quad-words at a specified address */
+      FLASH_Program_Burst(Address, DataAddress);
+ 800068c:	6879      	ldr	r1, [r7, #4]
+ 800068e:	68b8      	ldr	r0, [r7, #8]
+ 8000690:	f000 f8da 	bl	8000848 <FLASH_Program_Burst>
+    }
+
+    /* Wait for last operation to be completed */
+    status = FLASH_WaitForLastOperation(FLASH_TIMEOUT_VALUE);
+ 8000694:	f44f 707a 	mov.w	r0, #1000	@ 0x3e8
+ 8000698:	f000 f854 	bl	8000744 <FLASH_WaitForLastOperation>
+ 800069c:	4603      	mov	r3, r0
+ 800069e:	75fb      	strb	r3, [r7, #23]
+
+    /* If the program operation is completed, disable the PG (and BWR Bit in Burst programming mode) */
+    CLEAR_BIT((*reg_cr), (TypeProgram & ~(FLASH_NON_SECURE_MASK)));
+ 80006a0:	693b      	ldr	r3, [r7, #16]
+ 80006a2:	681a      	ldr	r2, [r3, #0]
+ 80006a4:	68fb      	ldr	r3, [r7, #12]
+ 80006a6:	f023 4300 	bic.w	r3, r3, #2147483648	@ 0x80000000
+ 80006aa:	43db      	mvns	r3, r3
+ 80006ac:	401a      	ands	r2, r3
+ 80006ae:	693b      	ldr	r3, [r7, #16]
+ 80006b0:	601a      	str	r2, [r3, #0]
+  }
+
+  /* Process Unlocked */
+  __HAL_UNLOCK(&pFlash);
+ 80006b2:	4b04      	ldr	r3, [pc, #16]	@ (80006c4 <HAL_FLASH_Program+0x8c>)
+ 80006b4:	2200      	movs	r2, #0
+ 80006b6:	701a      	strb	r2, [r3, #0]
+
+  /* return status */
+  return status;
+ 80006b8:	7dfb      	ldrb	r3, [r7, #23]
+}
+ 80006ba:	4618      	mov	r0, r3
+ 80006bc:	3718      	adds	r7, #24
+ 80006be:	46bd      	mov	sp, r7
+ 80006c0:	bd80      	pop	{r7, pc}
+ 80006c2:	bf00      	nop
+ 80006c4:	20000004 	.word	0x20000004
+ 80006c8:	40022028 	.word	0x40022028
+
+080006cc <HAL_FLASH_Unlock>:
+/**
+  * @brief  Unlock the FLASH control register access.
+  * @retval HAL Status
+  */
+HAL_StatusTypeDef HAL_FLASH_Unlock(void)
+{
+ 80006cc:	b480      	push	{r7}
+ 80006ce:	b083      	sub	sp, #12
+ 80006d0:	af00      	add	r7, sp, #0
+  HAL_StatusTypeDef status = HAL_OK;
+ 80006d2:	2300      	movs	r3, #0
+ 80006d4:	71fb      	strb	r3, [r7, #7]
+
+  if (READ_BIT(FLASH->NSCR, FLASH_NSCR_LOCK) != 0U)
+ 80006d6:	4b0b      	ldr	r3, [pc, #44]	@ (8000704 <HAL_FLASH_Unlock+0x38>)
+ 80006d8:	6a9b      	ldr	r3, [r3, #40]	@ 0x28
+ 80006da:	2b00      	cmp	r3, #0
+ 80006dc:	da0b      	bge.n	80006f6 <HAL_FLASH_Unlock+0x2a>
+  {
+    /* Authorize the FLASH Registers access */
+    WRITE_REG(FLASH->NSKEYR, FLASH_KEY1);
+ 80006de:	4b09      	ldr	r3, [pc, #36]	@ (8000704 <HAL_FLASH_Unlock+0x38>)
+ 80006e0:	4a09      	ldr	r2, [pc, #36]	@ (8000708 <HAL_FLASH_Unlock+0x3c>)
+ 80006e2:	609a      	str	r2, [r3, #8]
+    WRITE_REG(FLASH->NSKEYR, FLASH_KEY2);
+ 80006e4:	4b07      	ldr	r3, [pc, #28]	@ (8000704 <HAL_FLASH_Unlock+0x38>)
+ 80006e6:	4a09      	ldr	r2, [pc, #36]	@ (800070c <HAL_FLASH_Unlock+0x40>)
+ 80006e8:	609a      	str	r2, [r3, #8]
+
+    /* verify Flash is unlocked */
+    if (READ_BIT(FLASH->NSCR, FLASH_NSCR_LOCK) != 0U)
+ 80006ea:	4b06      	ldr	r3, [pc, #24]	@ (8000704 <HAL_FLASH_Unlock+0x38>)
+ 80006ec:	6a9b      	ldr	r3, [r3, #40]	@ 0x28
+ 80006ee:	2b00      	cmp	r3, #0
+ 80006f0:	da01      	bge.n	80006f6 <HAL_FLASH_Unlock+0x2a>
+    {
+      status = HAL_ERROR;
+ 80006f2:	2301      	movs	r3, #1
+ 80006f4:	71fb      	strb	r3, [r7, #7]
+      }
+    }
+  }
+#endif /* __ARM_FEATURE_CMSE */
+
+  return status;
+ 80006f6:	79fb      	ldrb	r3, [r7, #7]
+}
+ 80006f8:	4618      	mov	r0, r3
+ 80006fa:	370c      	adds	r7, #12
+ 80006fc:	46bd      	mov	sp, r7
+ 80006fe:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000702:	4770      	bx	lr
+ 8000704:	40022000 	.word	0x40022000
+ 8000708:	45670123 	.word	0x45670123
+ 800070c:	cdef89ab 	.word	0xcdef89ab
+
+08000710 <HAL_FLASH_Lock>:
+/**
+  * @brief  Lock the FLASH control register access.
+  * @retval HAL Status
+  */
+HAL_StatusTypeDef HAL_FLASH_Lock(void)
+{
+ 8000710:	b480      	push	{r7}
+ 8000712:	b083      	sub	sp, #12
+ 8000714:	af00      	add	r7, sp, #0
+  HAL_StatusTypeDef status = HAL_ERROR;
+ 8000716:	2301      	movs	r3, #1
+ 8000718:	71fb      	strb	r3, [r7, #7]
+
+  /* Set the LOCK Bit to lock the FLASH Registers access */
+  SET_BIT(FLASH->NSCR, FLASH_NSCR_LOCK);
+ 800071a:	4b09      	ldr	r3, [pc, #36]	@ (8000740 <HAL_FLASH_Lock+0x30>)
+ 800071c:	6a9b      	ldr	r3, [r3, #40]	@ 0x28
+ 800071e:	4a08      	ldr	r2, [pc, #32]	@ (8000740 <HAL_FLASH_Lock+0x30>)
+ 8000720:	f043 4300 	orr.w	r3, r3, #2147483648	@ 0x80000000
+ 8000724:	6293      	str	r3, [r2, #40]	@ 0x28
+
+  /* verify Flash is locked */
+  if (READ_BIT(FLASH->NSCR, FLASH_NSCR_LOCK) != 0U)
+ 8000726:	4b06      	ldr	r3, [pc, #24]	@ (8000740 <HAL_FLASH_Lock+0x30>)
+ 8000728:	6a9b      	ldr	r3, [r3, #40]	@ 0x28
+ 800072a:	2b00      	cmp	r3, #0
+ 800072c:	da01      	bge.n	8000732 <HAL_FLASH_Lock+0x22>
+  {
+    status = HAL_OK;
+ 800072e:	2300      	movs	r3, #0
+ 8000730:	71fb      	strb	r3, [r7, #7]
+      status = HAL_OK;
+    }
+  }
+#endif /* __ARM_FEATURE_CMSE */
+
+  return status;
+ 8000732:	79fb      	ldrb	r3, [r7, #7]
+}
+ 8000734:	4618      	mov	r0, r3
+ 8000736:	370c      	adds	r7, #12
+ 8000738:	46bd      	mov	sp, r7
+ 800073a:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 800073e:	4770      	bx	lr
+ 8000740:	40022000 	.word	0x40022000
+
+08000744 <FLASH_WaitForLastOperation>:
+  * @brief  Wait for a FLASH operation to complete.
+  * @param  Timeout maximum flash operation timeout
+  * @retval HAL Status
+  */
+HAL_StatusTypeDef FLASH_WaitForLastOperation(uint32_t Timeout)
+{
+ 8000744:	b580      	push	{r7, lr}
+ 8000746:	b086      	sub	sp, #24
+ 8000748:	af00      	add	r7, sp, #0
+ 800074a:	6078      	str	r0, [r7, #4]
+  /* Wait for the FLASH operation to complete by polling on BUSY and WDW flags to be reset.
+     Even if the FLASH operation fails, the BUSY & WDW flags will be reset, and an error flag will be set */
+
+  uint32_t timeout = HAL_GetTick() + Timeout;
+ 800074c:	f7ff ff20 	bl	8000590 <HAL_GetTick>
+ 8000750:	4602      	mov	r2, r0
+ 8000752:	687b      	ldr	r3, [r7, #4]
+ 8000754:	4413      	add	r3, r2
+ 8000756:	617b      	str	r3, [r7, #20]
+  uint32_t error;
+  __IO uint32_t *reg_sr;
+
+  /* Access to SECSR or NSSR registers depends on operation type */
+  reg_sr = IS_FLASH_SECURE_OPERATION() ? &(FLASH->SECSR) : &(FLASH_NS->NSSR);
+ 8000758:	4b1b      	ldr	r3, [pc, #108]	@ (80007c8 <FLASH_WaitForLastOperation+0x84>)
+ 800075a:	613b      	str	r3, [r7, #16]
+
+  while (((*reg_sr) & (FLASH_FLAG_BSY | FLASH_FLAG_WDW)) != 0U)
+ 800075c:	e00b      	b.n	8000776 <FLASH_WaitForLastOperation+0x32>
+  {
+    if (Timeout != HAL_MAX_DELAY)
+ 800075e:	687b      	ldr	r3, [r7, #4]
+ 8000760:	f1b3 3fff 	cmp.w	r3, #4294967295
+ 8000764:	d007      	beq.n	8000776 <FLASH_WaitForLastOperation+0x32>
+    {
+      if (HAL_GetTick() >= timeout)
+ 8000766:	f7ff ff13 	bl	8000590 <HAL_GetTick>
+ 800076a:	4602      	mov	r2, r0
+ 800076c:	697b      	ldr	r3, [r7, #20]
+ 800076e:	4293      	cmp	r3, r2
+ 8000770:	d801      	bhi.n	8000776 <FLASH_WaitForLastOperation+0x32>
+      {
+        return HAL_TIMEOUT;
+ 8000772:	2303      	movs	r3, #3
+ 8000774:	e023      	b.n	80007be <FLASH_WaitForLastOperation+0x7a>
+  while (((*reg_sr) & (FLASH_FLAG_BSY | FLASH_FLAG_WDW)) != 0U)
+ 8000776:	693b      	ldr	r3, [r7, #16]
+ 8000778:	681b      	ldr	r3, [r3, #0]
+ 800077a:	f403 3340 	and.w	r3, r3, #196608	@ 0x30000
+ 800077e:	2b00      	cmp	r3, #0
+ 8000780:	d1ed      	bne.n	800075e <FLASH_WaitForLastOperation+0x1a>
+      }
+    }
+  }
+
+  /* Check FLASH operation error flags */
+  error = ((*reg_sr) & FLASH_FLAG_SR_ERRORS);
+ 8000782:	693b      	ldr	r3, [r7, #16]
+ 8000784:	681a      	ldr	r2, [r3, #0]
+ 8000786:	f242 03fa 	movw	r3, #8442	@ 0x20fa
+ 800078a:	4013      	ands	r3, r2
+ 800078c:	60fb      	str	r3, [r7, #12]
+#if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
+  error |= (FLASH->NSSR & FLASH_FLAG_OPTWERR);
+#endif /* __ARM_FEATURE_CMSE */
+
+  if (error != 0U)
+ 800078e:	68fb      	ldr	r3, [r7, #12]
+ 8000790:	2b00      	cmp	r3, #0
+ 8000792:	d00a      	beq.n	80007aa <FLASH_WaitForLastOperation+0x66>
+  {
+    /*Save the error code*/
+    pFlash.ErrorCode |= error;
+ 8000794:	4b0d      	ldr	r3, [pc, #52]	@ (80007cc <FLASH_WaitForLastOperation+0x88>)
+ 8000796:	685a      	ldr	r2, [r3, #4]
+ 8000798:	68fb      	ldr	r3, [r7, #12]
+ 800079a:	4313      	orrs	r3, r2
+ 800079c:	4a0b      	ldr	r2, [pc, #44]	@ (80007cc <FLASH_WaitForLastOperation+0x88>)
+ 800079e:	6053      	str	r3, [r2, #4]
+
+    /* Clear error programming flags */
+    (*reg_sr) = error;
+ 80007a0:	693b      	ldr	r3, [r7, #16]
+ 80007a2:	68fa      	ldr	r2, [r7, #12]
+ 80007a4:	601a      	str	r2, [r3, #0]
+    {
+      FLASH->NSSR = FLASH_FLAG_OPTWERR;
+    }
+#endif /* __ARM_FEATURE_CMSE */
+
+    return HAL_ERROR;
+ 80007a6:	2301      	movs	r3, #1
+ 80007a8:	e009      	b.n	80007be <FLASH_WaitForLastOperation+0x7a>
+  }
+
+  /* Check FLASH End of Operation flag  */
+  if (((*reg_sr) & FLASH_FLAG_EOP) != 0U)
+ 80007aa:	693b      	ldr	r3, [r7, #16]
+ 80007ac:	681b      	ldr	r3, [r3, #0]
+ 80007ae:	f003 0301 	and.w	r3, r3, #1
+ 80007b2:	2b00      	cmp	r3, #0
+ 80007b4:	d002      	beq.n	80007bc <FLASH_WaitForLastOperation+0x78>
+  {
+    /* Clear FLASH End of Operation pending bit */
+    (*reg_sr) = FLASH_FLAG_EOP;
+ 80007b6:	693b      	ldr	r3, [r7, #16]
+ 80007b8:	2201      	movs	r2, #1
+ 80007ba:	601a      	str	r2, [r3, #0]
+  }
+
+  /* If there is no error flag set */
+  return HAL_OK;
+ 80007bc:	2300      	movs	r3, #0
+}
+ 80007be:	4618      	mov	r0, r3
+ 80007c0:	3718      	adds	r7, #24
+ 80007c2:	46bd      	mov	sp, r7
+ 80007c4:	bd80      	pop	{r7, pc}
+ 80007c6:	bf00      	nop
+ 80007c8:	40022020 	.word	0x40022020
+ 80007cc:	20000004 	.word	0x20000004
+
+080007d0 <FLASH_Program_QuadWord>:
+  * @param  Address specifies the address to be programmed.
+  * @param  DataAddress specifies the address of data to be programmed.
+  * @retval None
+  */
+static void FLASH_Program_QuadWord(uint32_t Address, uint32_t DataAddress)
+{
+ 80007d0:	b480      	push	{r7}
+ 80007d2:	b08b      	sub	sp, #44	@ 0x2c
+ 80007d4:	af00      	add	r7, sp, #0
+ 80007d6:	6078      	str	r0, [r7, #4]
+ 80007d8:	6039      	str	r1, [r7, #0]
+  uint8_t index = 4;
+ 80007da:	2304      	movs	r3, #4
+ 80007dc:	f887 3027 	strb.w	r3, [r7, #39]	@ 0x27
+  uint32_t *dest_addr = (uint32_t *)Address;
+ 80007e0:	687b      	ldr	r3, [r7, #4]
+ 80007e2:	623b      	str	r3, [r7, #32]
+  uint32_t *src_addr  = (uint32_t *)DataAddress;
+ 80007e4:	683b      	ldr	r3, [r7, #0]
+ 80007e6:	61fb      	str	r3, [r7, #28]
+
+  /* Check the parameters */
+  assert_param(IS_FLASH_PROGRAM_ADDRESS(Address));
+
+  /* Access to SECCR or NSCR registers depends on operation type */
+  reg_cr = IS_FLASH_SECURE_OPERATION() ? &(FLASH->SECCR) : &(FLASH_NS->NSCR);
+ 80007e8:	4b16      	ldr	r3, [pc, #88]	@ (8000844 <FLASH_Program_QuadWord+0x74>)
+ 80007ea:	61bb      	str	r3, [r7, #24]
+
+  /* Set PG bit */
+  SET_BIT((*reg_cr), FLASH_NSCR_PG);
+ 80007ec:	69bb      	ldr	r3, [r7, #24]
+ 80007ee:	681b      	ldr	r3, [r3, #0]
+ 80007f0:	f043 0201 	orr.w	r2, r3, #1
+ 80007f4:	69bb      	ldr	r3, [r7, #24]
+ 80007f6:	601a      	str	r2, [r3, #0]
+ */
+__STATIC_FORCEINLINE uint32_t __get_PRIMASK(void)
+{
+  uint32_t result;
+
+  __ASM volatile ("MRS %0, primask" : "=r" (result) );
+ 80007f8:	f3ef 8310 	mrs	r3, PRIMASK
+ 80007fc:	613b      	str	r3, [r7, #16]
+  return(result);
+ 80007fe:	693b      	ldr	r3, [r7, #16]
+
+  /* Enter critical section: Disable interrupts to avoid any interruption during the loop */
+  primask_bit = __get_PRIMASK();
+ 8000800:	617b      	str	r3, [r7, #20]
+  __ASM volatile ("cpsid i" : : : "memory");
+ 8000802:	b672      	cpsid	i
+}
+ 8000804:	bf00      	nop
+  __disable_irq();
+
+  /* Program the quad-word */
+  do
+  {
+    *dest_addr = *src_addr;
+ 8000806:	69fb      	ldr	r3, [r7, #28]
+ 8000808:	681a      	ldr	r2, [r3, #0]
+ 800080a:	6a3b      	ldr	r3, [r7, #32]
+ 800080c:	601a      	str	r2, [r3, #0]
+    dest_addr++;
+ 800080e:	6a3b      	ldr	r3, [r7, #32]
+ 8000810:	3304      	adds	r3, #4
+ 8000812:	623b      	str	r3, [r7, #32]
+    src_addr++;
+ 8000814:	69fb      	ldr	r3, [r7, #28]
+ 8000816:	3304      	adds	r3, #4
+ 8000818:	61fb      	str	r3, [r7, #28]
+    index--;
+ 800081a:	f897 3027 	ldrb.w	r3, [r7, #39]	@ 0x27
+ 800081e:	3b01      	subs	r3, #1
+ 8000820:	f887 3027 	strb.w	r3, [r7, #39]	@ 0x27
+  } while (index != 0U);
+ 8000824:	f897 3027 	ldrb.w	r3, [r7, #39]	@ 0x27
+ 8000828:	2b00      	cmp	r3, #0
+ 800082a:	d1ec      	bne.n	8000806 <FLASH_Program_QuadWord+0x36>
+ 800082c:	697b      	ldr	r3, [r7, #20]
+ 800082e:	60fb      	str	r3, [r7, #12]
+  \details Assigns the given value to the Priority Mask Register.
+  \param [in]    priMask  Priority Mask
+ */
+__STATIC_FORCEINLINE void __set_PRIMASK(uint32_t priMask)
+{
+  __ASM volatile ("MSR primask, %0" : : "r" (priMask) : "memory");
+ 8000830:	68fb      	ldr	r3, [r7, #12]
+ 8000832:	f383 8810 	msr	PRIMASK, r3
+}
+ 8000836:	bf00      	nop
+
+  /* Exit critical section: restore previous priority mask */
+  __set_PRIMASK(primask_bit);
+}
+ 8000838:	bf00      	nop
+ 800083a:	372c      	adds	r7, #44	@ 0x2c
+ 800083c:	46bd      	mov	sp, r7
+ 800083e:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000842:	4770      	bx	lr
+ 8000844:	40022028 	.word	0x40022028
+
+08000848 <FLASH_Program_Burst>:
+  * @param  Address: specifies the address to be programmed.
+  * @param  DataAddress: specifies the address where the data are stored.
+  * @retval None
+  */
+static void FLASH_Program_Burst(uint32_t Address, uint32_t DataAddress)
+{
+ 8000848:	b480      	push	{r7}
+ 800084a:	b08b      	sub	sp, #44	@ 0x2c
+ 800084c:	af00      	add	r7, sp, #0
+ 800084e:	6078      	str	r0, [r7, #4]
+ 8000850:	6039      	str	r1, [r7, #0]
+  uint8_t burst_index = FLASH_NB_WORDS_IN_BURST;
+ 8000852:	2320      	movs	r3, #32
+ 8000854:	f887 3027 	strb.w	r3, [r7, #39]	@ 0x27
+  uint32_t *dest_addr = (uint32_t *)Address;
+ 8000858:	687b      	ldr	r3, [r7, #4]
+ 800085a:	623b      	str	r3, [r7, #32]
+  uint32_t *src_addr = (uint32_t *)DataAddress;
+ 800085c:	683b      	ldr	r3, [r7, #0]
+ 800085e:	61fb      	str	r3, [r7, #28]
+
+  /* Check the parameters */
+  assert_param(IS_FLASH_MAIN_MEM_ADDRESS(Address));
+
+  /* Access to SECCR or NSCR registers depends on operation type */
+  reg_cr = IS_FLASH_SECURE_OPERATION() ? &(FLASH->SECCR) : &(FLASH_NS->NSCR);
+ 8000860:	4b17      	ldr	r3, [pc, #92]	@ (80008c0 <FLASH_Program_Burst+0x78>)
+ 8000862:	61bb      	str	r3, [r7, #24]
+
+  /* Set PG and BWR bits */
+  SET_BIT((*reg_cr), (FLASH_NSCR_PG | FLASH_NSCR_BWR));
+ 8000864:	69bb      	ldr	r3, [r7, #24]
+ 8000866:	681b      	ldr	r3, [r3, #0]
+ 8000868:	f443 4380 	orr.w	r3, r3, #16384	@ 0x4000
+ 800086c:	f043 0301 	orr.w	r3, r3, #1
+ 8000870:	69ba      	ldr	r2, [r7, #24]
+ 8000872:	6013      	str	r3, [r2, #0]
+  __ASM volatile ("MRS %0, primask" : "=r" (result) );
+ 8000874:	f3ef 8310 	mrs	r3, PRIMASK
+ 8000878:	613b      	str	r3, [r7, #16]
+  return(result);
+ 800087a:	693b      	ldr	r3, [r7, #16]
+
+  /* Enter critical section: Disable interrupts to avoid any interruption during the loop */
+  primask_bit = __get_PRIMASK();
+ 800087c:	617b      	str	r3, [r7, #20]
+  __ASM volatile ("cpsid i" : : : "memory");
+ 800087e:	b672      	cpsid	i
+}
+ 8000880:	bf00      	nop
+  __disable_irq();
+
+  /* Program the burst */
+  do
+  {
+    *dest_addr = *src_addr;
+ 8000882:	69fb      	ldr	r3, [r7, #28]
+ 8000884:	681a      	ldr	r2, [r3, #0]
+ 8000886:	6a3b      	ldr	r3, [r7, #32]
+ 8000888:	601a      	str	r2, [r3, #0]
+    dest_addr++;
+ 800088a:	6a3b      	ldr	r3, [r7, #32]
+ 800088c:	3304      	adds	r3, #4
+ 800088e:	623b      	str	r3, [r7, #32]
+    src_addr++;
+ 8000890:	69fb      	ldr	r3, [r7, #28]
+ 8000892:	3304      	adds	r3, #4
+ 8000894:	61fb      	str	r3, [r7, #28]
+    burst_index--;
+ 8000896:	f897 3027 	ldrb.w	r3, [r7, #39]	@ 0x27
+ 800089a:	3b01      	subs	r3, #1
+ 800089c:	f887 3027 	strb.w	r3, [r7, #39]	@ 0x27
+  } while (burst_index != 0U);
+ 80008a0:	f897 3027 	ldrb.w	r3, [r7, #39]	@ 0x27
+ 80008a4:	2b00      	cmp	r3, #0
+ 80008a6:	d1ec      	bne.n	8000882 <FLASH_Program_Burst+0x3a>
+ 80008a8:	697b      	ldr	r3, [r7, #20]
+ 80008aa:	60fb      	str	r3, [r7, #12]
+  __ASM volatile ("MSR primask, %0" : : "r" (priMask) : "memory");
+ 80008ac:	68fb      	ldr	r3, [r7, #12]
+ 80008ae:	f383 8810 	msr	PRIMASK, r3
+}
+ 80008b2:	bf00      	nop
+
+  /* Exit critical section: restore previous priority mask */
+  __set_PRIMASK(primask_bit);
+}
+ 80008b4:	bf00      	nop
+ 80008b6:	372c      	adds	r7, #44	@ 0x2c
+ 80008b8:	46bd      	mov	sp, r7
+ 80008ba:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 80008be:	4770      	bx	lr
+ 80008c0:	40022028 	.word	0x40022028
+
+080008c4 <HAL_FLASHEx_Erase>:
+  *         the pages have been correctly erased).
+  *
+  * @retval HAL Status
+  */
+HAL_StatusTypeDef HAL_FLASHEx_Erase(FLASH_EraseInitTypeDef *pEraseInit, uint32_t *PageError)
+{
+ 80008c4:	b580      	push	{r7, lr}
+ 80008c6:	b086      	sub	sp, #24
+ 80008c8:	af00      	add	r7, sp, #0
+ 80008ca:	6078      	str	r0, [r7, #4]
+ 80008cc:	6039      	str	r1, [r7, #0]
+
+  /* Check the parameters */
+  assert_param(IS_FLASH_TYPEERASE(pEraseInit->TypeErase));
+
+  /* Process Locked */
+  __HAL_LOCK(&pFlash);
+ 80008ce:	4b33      	ldr	r3, [pc, #204]	@ (800099c <HAL_FLASHEx_Erase+0xd8>)
+ 80008d0:	781b      	ldrb	r3, [r3, #0]
+ 80008d2:	2b01      	cmp	r3, #1
+ 80008d4:	d101      	bne.n	80008da <HAL_FLASHEx_Erase+0x16>
+ 80008d6:	2302      	movs	r3, #2
+ 80008d8:	e05c      	b.n	8000994 <HAL_FLASHEx_Erase+0xd0>
+ 80008da:	4b30      	ldr	r3, [pc, #192]	@ (800099c <HAL_FLASHEx_Erase+0xd8>)
+ 80008dc:	2201      	movs	r2, #1
+ 80008de:	701a      	strb	r2, [r3, #0]
+
+  /* Reset error code */
+  pFlash.ErrorCode = HAL_FLASH_ERROR_NONE;
+ 80008e0:	4b2e      	ldr	r3, [pc, #184]	@ (800099c <HAL_FLASHEx_Erase+0xd8>)
+ 80008e2:	2200      	movs	r2, #0
+ 80008e4:	605a      	str	r2, [r3, #4]
+
+  /* Wait for last operation to be completed */
+  status = FLASH_WaitForLastOperation(FLASH_TIMEOUT_VALUE);
+ 80008e6:	f44f 707a 	mov.w	r0, #1000	@ 0x3e8
+ 80008ea:	f7ff ff2b 	bl	8000744 <FLASH_WaitForLastOperation>
+ 80008ee:	4603      	mov	r3, r0
+ 80008f0:	75fb      	strb	r3, [r7, #23]
+
+  if (status == HAL_OK)
+ 80008f2:	7dfb      	ldrb	r3, [r7, #23]
+ 80008f4:	2b00      	cmp	r3, #0
+ 80008f6:	d149      	bne.n	800098c <HAL_FLASHEx_Erase+0xc8>
+  {
+    /* Current operation type */
+    pFlash.ProcedureOnGoing = pEraseInit->TypeErase;
+ 80008f8:	687b      	ldr	r3, [r7, #4]
+ 80008fa:	681b      	ldr	r3, [r3, #0]
+ 80008fc:	4a27      	ldr	r2, [pc, #156]	@ (800099c <HAL_FLASHEx_Erase+0xd8>)
+ 80008fe:	6093      	str	r3, [r2, #8]
+
+    /* Access to SECCR or NSCR depends on operation type */
+    reg_cr = IS_FLASH_SECURE_OPERATION() ? &(FLASH->SECCR) : &(FLASH->NSCR);
+ 8000900:	4b27      	ldr	r3, [pc, #156]	@ (80009a0 <HAL_FLASHEx_Erase+0xdc>)
+ 8000902:	60fb      	str	r3, [r7, #12]
+
+    if ((pEraseInit->TypeErase & (~FLASH_NON_SECURE_MASK)) == FLASH_TYPEERASE_MASSERASE)
+ 8000904:	687b      	ldr	r3, [r7, #4]
+ 8000906:	681b      	ldr	r3, [r3, #0]
+ 8000908:	f023 4300 	bic.w	r3, r3, #2147483648	@ 0x80000000
+ 800090c:	f248 0204 	movw	r2, #32772	@ 0x8004
+ 8000910:	4293      	cmp	r3, r2
+ 8000912:	d10b      	bne.n	800092c <HAL_FLASHEx_Erase+0x68>
+    {
+      /* Mass erase to be done */
+      FLASH_MassErase(pEraseInit->Banks);
+ 8000914:	687b      	ldr	r3, [r7, #4]
+ 8000916:	685b      	ldr	r3, [r3, #4]
+ 8000918:	4618      	mov	r0, r3
+ 800091a:	f000 f843 	bl	80009a4 <FLASH_MassErase>
+
+      /* Wait for last operation to be completed */
+      status = FLASH_WaitForLastOperation(FLASH_TIMEOUT_VALUE);
+ 800091e:	f44f 707a 	mov.w	r0, #1000	@ 0x3e8
+ 8000922:	f7ff ff0f 	bl	8000744 <FLASH_WaitForLastOperation>
+ 8000926:	4603      	mov	r3, r0
+ 8000928:	75fb      	strb	r3, [r7, #23]
+ 800092a:	e025      	b.n	8000978 <HAL_FLASHEx_Erase+0xb4>
+    }
+    else
+    {
+      /*Initialization of PageError variable*/
+      *PageError = 0xFFFFFFFFU;
+ 800092c:	683b      	ldr	r3, [r7, #0]
+ 800092e:	f04f 32ff 	mov.w	r2, #4294967295
+ 8000932:	601a      	str	r2, [r3, #0]
+
+      for (page_index = pEraseInit->Page; page_index < (pEraseInit->Page + pEraseInit->NbPages); page_index++)
+ 8000934:	687b      	ldr	r3, [r7, #4]
+ 8000936:	689b      	ldr	r3, [r3, #8]
+ 8000938:	613b      	str	r3, [r7, #16]
+ 800093a:	e015      	b.n	8000968 <HAL_FLASHEx_Erase+0xa4>
+      {
+        FLASH_PageErase(page_index, pEraseInit->Banks);
+ 800093c:	687b      	ldr	r3, [r7, #4]
+ 800093e:	685b      	ldr	r3, [r3, #4]
+ 8000940:	4619      	mov	r1, r3
+ 8000942:	6938      	ldr	r0, [r7, #16]
+ 8000944:	f000 f854 	bl	80009f0 <FLASH_PageErase>
+
+        /* Wait for last operation to be completed */
+        status = FLASH_WaitForLastOperation(FLASH_TIMEOUT_VALUE);
+ 8000948:	f44f 707a 	mov.w	r0, #1000	@ 0x3e8
+ 800094c:	f7ff fefa 	bl	8000744 <FLASH_WaitForLastOperation>
+ 8000950:	4603      	mov	r3, r0
+ 8000952:	75fb      	strb	r3, [r7, #23]
+
+        if (status != HAL_OK)
+ 8000954:	7dfb      	ldrb	r3, [r7, #23]
+ 8000956:	2b00      	cmp	r3, #0
+ 8000958:	d003      	beq.n	8000962 <HAL_FLASHEx_Erase+0x9e>
+        {
+          /* In case of error, stop erase procedure and return the faulty page */
+          *PageError = page_index;
+ 800095a:	683b      	ldr	r3, [r7, #0]
+ 800095c:	693a      	ldr	r2, [r7, #16]
+ 800095e:	601a      	str	r2, [r3, #0]
+          break;
+ 8000960:	e00a      	b.n	8000978 <HAL_FLASHEx_Erase+0xb4>
+      for (page_index = pEraseInit->Page; page_index < (pEraseInit->Page + pEraseInit->NbPages); page_index++)
+ 8000962:	693b      	ldr	r3, [r7, #16]
+ 8000964:	3301      	adds	r3, #1
+ 8000966:	613b      	str	r3, [r7, #16]
+ 8000968:	687b      	ldr	r3, [r7, #4]
+ 800096a:	689a      	ldr	r2, [r3, #8]
+ 800096c:	687b      	ldr	r3, [r7, #4]
+ 800096e:	68db      	ldr	r3, [r3, #12]
+ 8000970:	4413      	add	r3, r2
+ 8000972:	693a      	ldr	r2, [r7, #16]
+ 8000974:	429a      	cmp	r2, r3
+ 8000976:	d3e1      	bcc.n	800093c <HAL_FLASHEx_Erase+0x78>
+        }
+      }
+    }
+
+    /* If the erase operation is completed, disable the associated bits */
+    CLEAR_BIT((*reg_cr), (pEraseInit->TypeErase) & (~(FLASH_NON_SECURE_MASK)));
+ 8000978:	68fb      	ldr	r3, [r7, #12]
+ 800097a:	681a      	ldr	r2, [r3, #0]
+ 800097c:	687b      	ldr	r3, [r7, #4]
+ 800097e:	681b      	ldr	r3, [r3, #0]
+ 8000980:	f023 4300 	bic.w	r3, r3, #2147483648	@ 0x80000000
+ 8000984:	43db      	mvns	r3, r3
+ 8000986:	401a      	ands	r2, r3
+ 8000988:	68fb      	ldr	r3, [r7, #12]
+ 800098a:	601a      	str	r2, [r3, #0]
+  }
+
+  /* Process Unlocked */
+  __HAL_UNLOCK(&pFlash);
+ 800098c:	4b03      	ldr	r3, [pc, #12]	@ (800099c <HAL_FLASHEx_Erase+0xd8>)
+ 800098e:	2200      	movs	r2, #0
+ 8000990:	701a      	strb	r2, [r3, #0]
+
+  return status;
+ 8000992:	7dfb      	ldrb	r3, [r7, #23]
+}
+ 8000994:	4618      	mov	r0, r3
+ 8000996:	3718      	adds	r7, #24
+ 8000998:	46bd      	mov	sp, r7
+ 800099a:	bd80      	pop	{r7, pc}
+ 800099c:	20000004 	.word	0x20000004
+ 80009a0:	40022028 	.word	0x40022028
+
+080009a4 <FLASH_MassErase>:
+  *            @arg FLASH_BANK_2: Bank2 to be erased
+  *            @arg FLASH_BANK_BOTH: Bank1 and Bank2 to be erased
+  * @retval None
+  */
+static void FLASH_MassErase(uint32_t Banks)
+{
+ 80009a4:	b480      	push	{r7}
+ 80009a6:	b085      	sub	sp, #20
+ 80009a8:	af00      	add	r7, sp, #0
+ 80009aa:	6078      	str	r0, [r7, #4]
+
+  /* Check the parameters */
+  assert_param(IS_FLASH_BANK(Banks));
+
+  /* Access to SECCR or NSCR registers depends on operation type */
+  reg_cr = IS_FLASH_SECURE_OPERATION() ? &(FLASH->SECCR) : &(FLASH_NS->NSCR);
+ 80009ac:	4b0f      	ldr	r3, [pc, #60]	@ (80009ec <FLASH_MassErase+0x48>)
+ 80009ae:	60fb      	str	r3, [r7, #12]
+
+  /* Set the Mass Erase Bit for the bank 1 and proceed to erase */
+  if ((Banks & FLASH_BANK_1) != 0U)
+ 80009b0:	687b      	ldr	r3, [r7, #4]
+ 80009b2:	f003 0301 	and.w	r3, r3, #1
+ 80009b6:	2b00      	cmp	r3, #0
+ 80009b8:	d007      	beq.n	80009ca <FLASH_MassErase+0x26>
+  {
+    SET_BIT((*reg_cr), FLASH_NSCR_MER1 | FLASH_NSCR_STRT);
+ 80009ba:	68fb      	ldr	r3, [r7, #12]
+ 80009bc:	681b      	ldr	r3, [r3, #0]
+ 80009be:	f443 3380 	orr.w	r3, r3, #65536	@ 0x10000
+ 80009c2:	f043 0304 	orr.w	r3, r3, #4
+ 80009c6:	68fa      	ldr	r2, [r7, #12]
+ 80009c8:	6013      	str	r3, [r2, #0]
+  }
+
+  /* Set the Mass Erase Bit for the bank 2 and proceed to erase */
+  if ((Banks & FLASH_BANK_2) != 0U)
+ 80009ca:	687b      	ldr	r3, [r7, #4]
+ 80009cc:	f003 0302 	and.w	r3, r3, #2
+ 80009d0:	2b00      	cmp	r3, #0
+ 80009d2:	d005      	beq.n	80009e0 <FLASH_MassErase+0x3c>
+  {
+    SET_BIT((*reg_cr), FLASH_NSCR_MER2 | FLASH_NSCR_STRT);
+ 80009d4:	68fb      	ldr	r3, [r7, #12]
+ 80009d6:	681b      	ldr	r3, [r3, #0]
+ 80009d8:	f443 32c0 	orr.w	r2, r3, #98304	@ 0x18000
+ 80009dc:	68fb      	ldr	r3, [r7, #12]
+ 80009de:	601a      	str	r2, [r3, #0]
+  }
+}
+ 80009e0:	bf00      	nop
+ 80009e2:	3714      	adds	r7, #20
+ 80009e4:	46bd      	mov	sp, r7
+ 80009e6:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 80009ea:	4770      	bx	lr
+ 80009ec:	40022028 	.word	0x40022028
+
+080009f0 <FLASH_PageErase>:
+  *            @arg FLASH_BANK_1: Page in bank 1 to be erased
+  *            @arg FLASH_BANK_2: Page in bank 2 to be erased
+  * @retval None
+  */
+void FLASH_PageErase(uint32_t Page, uint32_t Banks)
+{
+ 80009f0:	b480      	push	{r7}
+ 80009f2:	b085      	sub	sp, #20
+ 80009f4:	af00      	add	r7, sp, #0
+ 80009f6:	6078      	str	r0, [r7, #4]
+ 80009f8:	6039      	str	r1, [r7, #0]
+  /* Check the parameters */
+  assert_param(IS_FLASH_PAGE(Page));
+  assert_param(IS_FLASH_BANK_EXCLUSIVE(Banks));
+
+  /* Access to SECCR or NSCR registers depends on operation type */
+  reg_cr = IS_FLASH_SECURE_OPERATION() ? &(FLASH->SECCR) : &(FLASH_NS->NSCR);
+ 80009fa:	4b14      	ldr	r3, [pc, #80]	@ (8000a4c <FLASH_PageErase+0x5c>)
+ 80009fc:	60fb      	str	r3, [r7, #12]
+
+  if ((Banks & FLASH_BANK_1) != 0U)
+ 80009fe:	683b      	ldr	r3, [r7, #0]
+ 8000a00:	f003 0301 	and.w	r3, r3, #1
+ 8000a04:	2b00      	cmp	r3, #0
+ 8000a06:	d006      	beq.n	8000a16 <FLASH_PageErase+0x26>
+  {
+    CLEAR_BIT((*reg_cr), FLASH_NSCR_BKER);
+ 8000a08:	68fb      	ldr	r3, [r7, #12]
+ 8000a0a:	681b      	ldr	r3, [r3, #0]
+ 8000a0c:	f423 6200 	bic.w	r2, r3, #2048	@ 0x800
+ 8000a10:	68fb      	ldr	r3, [r7, #12]
+ 8000a12:	601a      	str	r2, [r3, #0]
+ 8000a14:	e005      	b.n	8000a22 <FLASH_PageErase+0x32>
+  }
+  else
+  {
+    SET_BIT((*reg_cr), FLASH_NSCR_BKER);
+ 8000a16:	68fb      	ldr	r3, [r7, #12]
+ 8000a18:	681b      	ldr	r3, [r3, #0]
+ 8000a1a:	f443 6200 	orr.w	r2, r3, #2048	@ 0x800
+ 8000a1e:	68fb      	ldr	r3, [r7, #12]
+ 8000a20:	601a      	str	r2, [r3, #0]
+  }
+
+  /* Proceed to erase the page */
+  MODIFY_REG((*reg_cr), (FLASH_NSCR_PNB | FLASH_NSCR_PER | FLASH_NSCR_STRT), \
+ 8000a22:	68fb      	ldr	r3, [r7, #12]
+ 8000a24:	681b      	ldr	r3, [r3, #0]
+ 8000a26:	f423 3381 	bic.w	r3, r3, #66048	@ 0x10200
+ 8000a2a:	f423 73fd 	bic.w	r3, r3, #506	@ 0x1fa
+ 8000a2e:	687a      	ldr	r2, [r7, #4]
+ 8000a30:	00d2      	lsls	r2, r2, #3
+ 8000a32:	4313      	orrs	r3, r2
+ 8000a34:	f443 3380 	orr.w	r3, r3, #65536	@ 0x10000
+ 8000a38:	f043 0302 	orr.w	r3, r3, #2
+ 8000a3c:	68fa      	ldr	r2, [r7, #12]
+ 8000a3e:	6013      	str	r3, [r2, #0]
+             ((Page << FLASH_NSCR_PNB_Pos) | FLASH_NSCR_PER | FLASH_NSCR_STRT));
+}
+ 8000a40:	bf00      	nop
+ 8000a42:	3714      	adds	r7, #20
+ 8000a44:	46bd      	mov	sp, r7
+ 8000a46:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000a4a:	4770      	bx	lr
+ 8000a4c:	40022028 	.word	0x40022028
+
+08000a50 <HAL_TIM_IRQHandler>:
+  * @brief  This function handles TIM interrupts requests.
+  * @param  htim TIM  handle
+  * @retval None
+  */
+void HAL_TIM_IRQHandler(TIM_HandleTypeDef *htim)
+{
+ 8000a50:	b580      	push	{r7, lr}
+ 8000a52:	b084      	sub	sp, #16
+ 8000a54:	af00      	add	r7, sp, #0
+ 8000a56:	6078      	str	r0, [r7, #4]
+  uint32_t itsource = htim->Instance->DIER;
+ 8000a58:	687b      	ldr	r3, [r7, #4]
+ 8000a5a:	681b      	ldr	r3, [r3, #0]
+ 8000a5c:	68db      	ldr	r3, [r3, #12]
+ 8000a5e:	60fb      	str	r3, [r7, #12]
+  uint32_t itflag   = htim->Instance->SR;
+ 8000a60:	687b      	ldr	r3, [r7, #4]
+ 8000a62:	681b      	ldr	r3, [r3, #0]
+ 8000a64:	691b      	ldr	r3, [r3, #16]
+ 8000a66:	60bb      	str	r3, [r7, #8]
+
+  /* Capture compare 1 event */
+  if ((itflag & (TIM_FLAG_CC1)) == (TIM_FLAG_CC1))
+ 8000a68:	68bb      	ldr	r3, [r7, #8]
+ 8000a6a:	f003 0302 	and.w	r3, r3, #2
+ 8000a6e:	2b00      	cmp	r3, #0
+ 8000a70:	d020      	beq.n	8000ab4 <HAL_TIM_IRQHandler+0x64>
+  {
+    if ((itsource & (TIM_IT_CC1)) == (TIM_IT_CC1))
+ 8000a72:	68fb      	ldr	r3, [r7, #12]
+ 8000a74:	f003 0302 	and.w	r3, r3, #2
+ 8000a78:	2b00      	cmp	r3, #0
+ 8000a7a:	d01b      	beq.n	8000ab4 <HAL_TIM_IRQHandler+0x64>
+    {
+      {
+        __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_CC1);
+ 8000a7c:	687b      	ldr	r3, [r7, #4]
+ 8000a7e:	681b      	ldr	r3, [r3, #0]
+ 8000a80:	f06f 0202 	mvn.w	r2, #2
+ 8000a84:	611a      	str	r2, [r3, #16]
+        htim->Channel = HAL_TIM_ACTIVE_CHANNEL_1;
+ 8000a86:	687b      	ldr	r3, [r7, #4]
+ 8000a88:	2201      	movs	r2, #1
+ 8000a8a:	771a      	strb	r2, [r3, #28]
+
+        /* Input capture event */
+        if ((htim->Instance->CCMR1 & TIM_CCMR1_CC1S) != 0x00U)
+ 8000a8c:	687b      	ldr	r3, [r7, #4]
+ 8000a8e:	681b      	ldr	r3, [r3, #0]
+ 8000a90:	699b      	ldr	r3, [r3, #24]
+ 8000a92:	f003 0303 	and.w	r3, r3, #3
+ 8000a96:	2b00      	cmp	r3, #0
+ 8000a98:	d003      	beq.n	8000aa2 <HAL_TIM_IRQHandler+0x52>
+        {
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+          htim->IC_CaptureCallback(htim);
+#else
+          HAL_TIM_IC_CaptureCallback(htim);
+ 8000a9a:	6878      	ldr	r0, [r7, #4]
+ 8000a9c:	f000 f931 	bl	8000d02 <HAL_TIM_IC_CaptureCallback>
+ 8000aa0:	e005      	b.n	8000aae <HAL_TIM_IRQHandler+0x5e>
+        {
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+          htim->OC_DelayElapsedCallback(htim);
+          htim->PWM_PulseFinishedCallback(htim);
+#else
+          HAL_TIM_OC_DelayElapsedCallback(htim);
+ 8000aa2:	6878      	ldr	r0, [r7, #4]
+ 8000aa4:	f000 f923 	bl	8000cee <HAL_TIM_OC_DelayElapsedCallback>
+          HAL_TIM_PWM_PulseFinishedCallback(htim);
+ 8000aa8:	6878      	ldr	r0, [r7, #4]
+ 8000aaa:	f000 f934 	bl	8000d16 <HAL_TIM_PWM_PulseFinishedCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+        }
+        htim->Channel = HAL_TIM_ACTIVE_CHANNEL_CLEARED;
+ 8000aae:	687b      	ldr	r3, [r7, #4]
+ 8000ab0:	2200      	movs	r2, #0
+ 8000ab2:	771a      	strb	r2, [r3, #28]
+      }
+    }
+  }
+  /* Capture compare 2 event */
+  if ((itflag & (TIM_FLAG_CC2)) == (TIM_FLAG_CC2))
+ 8000ab4:	68bb      	ldr	r3, [r7, #8]
+ 8000ab6:	f003 0304 	and.w	r3, r3, #4
+ 8000aba:	2b00      	cmp	r3, #0
+ 8000abc:	d020      	beq.n	8000b00 <HAL_TIM_IRQHandler+0xb0>
+  {
+    if ((itsource & (TIM_IT_CC2)) == (TIM_IT_CC2))
+ 8000abe:	68fb      	ldr	r3, [r7, #12]
+ 8000ac0:	f003 0304 	and.w	r3, r3, #4
+ 8000ac4:	2b00      	cmp	r3, #0
+ 8000ac6:	d01b      	beq.n	8000b00 <HAL_TIM_IRQHandler+0xb0>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_CC2);
+ 8000ac8:	687b      	ldr	r3, [r7, #4]
+ 8000aca:	681b      	ldr	r3, [r3, #0]
+ 8000acc:	f06f 0204 	mvn.w	r2, #4
+ 8000ad0:	611a      	str	r2, [r3, #16]
+      htim->Channel = HAL_TIM_ACTIVE_CHANNEL_2;
+ 8000ad2:	687b      	ldr	r3, [r7, #4]
+ 8000ad4:	2202      	movs	r2, #2
+ 8000ad6:	771a      	strb	r2, [r3, #28]
+      /* Input capture event */
+      if ((htim->Instance->CCMR1 & TIM_CCMR1_CC2S) != 0x00U)
+ 8000ad8:	687b      	ldr	r3, [r7, #4]
+ 8000ada:	681b      	ldr	r3, [r3, #0]
+ 8000adc:	699b      	ldr	r3, [r3, #24]
+ 8000ade:	f403 7340 	and.w	r3, r3, #768	@ 0x300
+ 8000ae2:	2b00      	cmp	r3, #0
+ 8000ae4:	d003      	beq.n	8000aee <HAL_TIM_IRQHandler+0x9e>
+      {
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+        htim->IC_CaptureCallback(htim);
+#else
+        HAL_TIM_IC_CaptureCallback(htim);
+ 8000ae6:	6878      	ldr	r0, [r7, #4]
+ 8000ae8:	f000 f90b 	bl	8000d02 <HAL_TIM_IC_CaptureCallback>
+ 8000aec:	e005      	b.n	8000afa <HAL_TIM_IRQHandler+0xaa>
+      {
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+        htim->OC_DelayElapsedCallback(htim);
+        htim->PWM_PulseFinishedCallback(htim);
+#else
+        HAL_TIM_OC_DelayElapsedCallback(htim);
+ 8000aee:	6878      	ldr	r0, [r7, #4]
+ 8000af0:	f000 f8fd 	bl	8000cee <HAL_TIM_OC_DelayElapsedCallback>
+        HAL_TIM_PWM_PulseFinishedCallback(htim);
+ 8000af4:	6878      	ldr	r0, [r7, #4]
+ 8000af6:	f000 f90e 	bl	8000d16 <HAL_TIM_PWM_PulseFinishedCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+      }
+      htim->Channel = HAL_TIM_ACTIVE_CHANNEL_CLEARED;
+ 8000afa:	687b      	ldr	r3, [r7, #4]
+ 8000afc:	2200      	movs	r2, #0
+ 8000afe:	771a      	strb	r2, [r3, #28]
+    }
+  }
+  /* Capture compare 3 event */
+  if ((itflag & (TIM_FLAG_CC3)) == (TIM_FLAG_CC3))
+ 8000b00:	68bb      	ldr	r3, [r7, #8]
+ 8000b02:	f003 0308 	and.w	r3, r3, #8
+ 8000b06:	2b00      	cmp	r3, #0
+ 8000b08:	d020      	beq.n	8000b4c <HAL_TIM_IRQHandler+0xfc>
+  {
+    if ((itsource & (TIM_IT_CC3)) == (TIM_IT_CC3))
+ 8000b0a:	68fb      	ldr	r3, [r7, #12]
+ 8000b0c:	f003 0308 	and.w	r3, r3, #8
+ 8000b10:	2b00      	cmp	r3, #0
+ 8000b12:	d01b      	beq.n	8000b4c <HAL_TIM_IRQHandler+0xfc>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_CC3);
+ 8000b14:	687b      	ldr	r3, [r7, #4]
+ 8000b16:	681b      	ldr	r3, [r3, #0]
+ 8000b18:	f06f 0208 	mvn.w	r2, #8
+ 8000b1c:	611a      	str	r2, [r3, #16]
+      htim->Channel = HAL_TIM_ACTIVE_CHANNEL_3;
+ 8000b1e:	687b      	ldr	r3, [r7, #4]
+ 8000b20:	2204      	movs	r2, #4
+ 8000b22:	771a      	strb	r2, [r3, #28]
+      /* Input capture event */
+      if ((htim->Instance->CCMR2 & TIM_CCMR2_CC3S) != 0x00U)
+ 8000b24:	687b      	ldr	r3, [r7, #4]
+ 8000b26:	681b      	ldr	r3, [r3, #0]
+ 8000b28:	69db      	ldr	r3, [r3, #28]
+ 8000b2a:	f003 0303 	and.w	r3, r3, #3
+ 8000b2e:	2b00      	cmp	r3, #0
+ 8000b30:	d003      	beq.n	8000b3a <HAL_TIM_IRQHandler+0xea>
+      {
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+        htim->IC_CaptureCallback(htim);
+#else
+        HAL_TIM_IC_CaptureCallback(htim);
+ 8000b32:	6878      	ldr	r0, [r7, #4]
+ 8000b34:	f000 f8e5 	bl	8000d02 <HAL_TIM_IC_CaptureCallback>
+ 8000b38:	e005      	b.n	8000b46 <HAL_TIM_IRQHandler+0xf6>
+      {
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+        htim->OC_DelayElapsedCallback(htim);
+        htim->PWM_PulseFinishedCallback(htim);
+#else
+        HAL_TIM_OC_DelayElapsedCallback(htim);
+ 8000b3a:	6878      	ldr	r0, [r7, #4]
+ 8000b3c:	f000 f8d7 	bl	8000cee <HAL_TIM_OC_DelayElapsedCallback>
+        HAL_TIM_PWM_PulseFinishedCallback(htim);
+ 8000b40:	6878      	ldr	r0, [r7, #4]
+ 8000b42:	f000 f8e8 	bl	8000d16 <HAL_TIM_PWM_PulseFinishedCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+      }
+      htim->Channel = HAL_TIM_ACTIVE_CHANNEL_CLEARED;
+ 8000b46:	687b      	ldr	r3, [r7, #4]
+ 8000b48:	2200      	movs	r2, #0
+ 8000b4a:	771a      	strb	r2, [r3, #28]
+    }
+  }
+  /* Capture compare 4 event */
+  if ((itflag & (TIM_FLAG_CC4)) == (TIM_FLAG_CC4))
+ 8000b4c:	68bb      	ldr	r3, [r7, #8]
+ 8000b4e:	f003 0310 	and.w	r3, r3, #16
+ 8000b52:	2b00      	cmp	r3, #0
+ 8000b54:	d020      	beq.n	8000b98 <HAL_TIM_IRQHandler+0x148>
+  {
+    if ((itsource & (TIM_IT_CC4)) == (TIM_IT_CC4))
+ 8000b56:	68fb      	ldr	r3, [r7, #12]
+ 8000b58:	f003 0310 	and.w	r3, r3, #16
+ 8000b5c:	2b00      	cmp	r3, #0
+ 8000b5e:	d01b      	beq.n	8000b98 <HAL_TIM_IRQHandler+0x148>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_CC4);
+ 8000b60:	687b      	ldr	r3, [r7, #4]
+ 8000b62:	681b      	ldr	r3, [r3, #0]
+ 8000b64:	f06f 0210 	mvn.w	r2, #16
+ 8000b68:	611a      	str	r2, [r3, #16]
+      htim->Channel = HAL_TIM_ACTIVE_CHANNEL_4;
+ 8000b6a:	687b      	ldr	r3, [r7, #4]
+ 8000b6c:	2208      	movs	r2, #8
+ 8000b6e:	771a      	strb	r2, [r3, #28]
+      /* Input capture event */
+      if ((htim->Instance->CCMR2 & TIM_CCMR2_CC4S) != 0x00U)
+ 8000b70:	687b      	ldr	r3, [r7, #4]
+ 8000b72:	681b      	ldr	r3, [r3, #0]
+ 8000b74:	69db      	ldr	r3, [r3, #28]
+ 8000b76:	f403 7340 	and.w	r3, r3, #768	@ 0x300
+ 8000b7a:	2b00      	cmp	r3, #0
+ 8000b7c:	d003      	beq.n	8000b86 <HAL_TIM_IRQHandler+0x136>
+      {
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+        htim->IC_CaptureCallback(htim);
+#else
+        HAL_TIM_IC_CaptureCallback(htim);
+ 8000b7e:	6878      	ldr	r0, [r7, #4]
+ 8000b80:	f000 f8bf 	bl	8000d02 <HAL_TIM_IC_CaptureCallback>
+ 8000b84:	e005      	b.n	8000b92 <HAL_TIM_IRQHandler+0x142>
+      {
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+        htim->OC_DelayElapsedCallback(htim);
+        htim->PWM_PulseFinishedCallback(htim);
+#else
+        HAL_TIM_OC_DelayElapsedCallback(htim);
+ 8000b86:	6878      	ldr	r0, [r7, #4]
+ 8000b88:	f000 f8b1 	bl	8000cee <HAL_TIM_OC_DelayElapsedCallback>
+        HAL_TIM_PWM_PulseFinishedCallback(htim);
+ 8000b8c:	6878      	ldr	r0, [r7, #4]
+ 8000b8e:	f000 f8c2 	bl	8000d16 <HAL_TIM_PWM_PulseFinishedCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+      }
+      htim->Channel = HAL_TIM_ACTIVE_CHANNEL_CLEARED;
+ 8000b92:	687b      	ldr	r3, [r7, #4]
+ 8000b94:	2200      	movs	r2, #0
+ 8000b96:	771a      	strb	r2, [r3, #28]
+    }
+  }
+  /* TIM Update event */
+  if ((itflag & (TIM_FLAG_UPDATE)) == (TIM_FLAG_UPDATE))
+ 8000b98:	68bb      	ldr	r3, [r7, #8]
+ 8000b9a:	f003 0301 	and.w	r3, r3, #1
+ 8000b9e:	2b00      	cmp	r3, #0
+ 8000ba0:	d00c      	beq.n	8000bbc <HAL_TIM_IRQHandler+0x16c>
+  {
+    if ((itsource & (TIM_IT_UPDATE)) == (TIM_IT_UPDATE))
+ 8000ba2:	68fb      	ldr	r3, [r7, #12]
+ 8000ba4:	f003 0301 	and.w	r3, r3, #1
+ 8000ba8:	2b00      	cmp	r3, #0
+ 8000baa:	d007      	beq.n	8000bbc <HAL_TIM_IRQHandler+0x16c>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_UPDATE);
+ 8000bac:	687b      	ldr	r3, [r7, #4]
+ 8000bae:	681b      	ldr	r3, [r3, #0]
+ 8000bb0:	f06f 0201 	mvn.w	r2, #1
+ 8000bb4:	611a      	str	r2, [r3, #16]
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+      htim->PeriodElapsedCallback(htim);
+#else
+      HAL_TIM_PeriodElapsedCallback(htim);
+ 8000bb6:	6878      	ldr	r0, [r7, #4]
+ 8000bb8:	f7ff fc0a 	bl	80003d0 <HAL_TIM_PeriodElapsedCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+    }
+  }
+  /* TIM Break input event */
+  if (((itflag & (TIM_FLAG_BREAK)) == (TIM_FLAG_BREAK)) || \
+ 8000bbc:	68bb      	ldr	r3, [r7, #8]
+ 8000bbe:	f003 0380 	and.w	r3, r3, #128	@ 0x80
+ 8000bc2:	2b00      	cmp	r3, #0
+ 8000bc4:	d104      	bne.n	8000bd0 <HAL_TIM_IRQHandler+0x180>
+      ((itflag & (TIM_FLAG_SYSTEM_BREAK)) == (TIM_FLAG_SYSTEM_BREAK)))
+ 8000bc6:	68bb      	ldr	r3, [r7, #8]
+ 8000bc8:	f403 5300 	and.w	r3, r3, #8192	@ 0x2000
+  if (((itflag & (TIM_FLAG_BREAK)) == (TIM_FLAG_BREAK)) || \
+ 8000bcc:	2b00      	cmp	r3, #0
+ 8000bce:	d00c      	beq.n	8000bea <HAL_TIM_IRQHandler+0x19a>
+  {
+    if ((itsource & (TIM_IT_BREAK)) == (TIM_IT_BREAK))
+ 8000bd0:	68fb      	ldr	r3, [r7, #12]
+ 8000bd2:	f003 0380 	and.w	r3, r3, #128	@ 0x80
+ 8000bd6:	2b00      	cmp	r3, #0
+ 8000bd8:	d007      	beq.n	8000bea <HAL_TIM_IRQHandler+0x19a>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_BREAK | TIM_FLAG_SYSTEM_BREAK);
+ 8000bda:	687b      	ldr	r3, [r7, #4]
+ 8000bdc:	681b      	ldr	r3, [r3, #0]
+ 8000bde:	f46f 5202 	mvn.w	r2, #8320	@ 0x2080
+ 8000be2:	611a      	str	r2, [r3, #16]
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+      htim->BreakCallback(htim);
+#else
+      HAL_TIMEx_BreakCallback(htim);
+ 8000be4:	6878      	ldr	r0, [r7, #4]
+ 8000be6:	f000 f8b4 	bl	8000d52 <HAL_TIMEx_BreakCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+    }
+  }
+  /* TIM Break2 input event */
+  if ((itflag & (TIM_FLAG_BREAK2)) == (TIM_FLAG_BREAK2))
+ 8000bea:	68bb      	ldr	r3, [r7, #8]
+ 8000bec:	f403 7380 	and.w	r3, r3, #256	@ 0x100
+ 8000bf0:	2b00      	cmp	r3, #0
+ 8000bf2:	d00c      	beq.n	8000c0e <HAL_TIM_IRQHandler+0x1be>
+  {
+    if ((itsource & (TIM_IT_BREAK)) == (TIM_IT_BREAK))
+ 8000bf4:	68fb      	ldr	r3, [r7, #12]
+ 8000bf6:	f003 0380 	and.w	r3, r3, #128	@ 0x80
+ 8000bfa:	2b00      	cmp	r3, #0
+ 8000bfc:	d007      	beq.n	8000c0e <HAL_TIM_IRQHandler+0x1be>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_BREAK2);
+ 8000bfe:	687b      	ldr	r3, [r7, #4]
+ 8000c00:	681b      	ldr	r3, [r3, #0]
+ 8000c02:	f46f 7280 	mvn.w	r2, #256	@ 0x100
+ 8000c06:	611a      	str	r2, [r3, #16]
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+      htim->Break2Callback(htim);
+#else
+      HAL_TIMEx_Break2Callback(htim);
+ 8000c08:	6878      	ldr	r0, [r7, #4]
+ 8000c0a:	f000 f8ac 	bl	8000d66 <HAL_TIMEx_Break2Callback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+    }
+  }
+  /* TIM Trigger detection event */
+  if ((itflag & (TIM_FLAG_TRIGGER)) == (TIM_FLAG_TRIGGER))
+ 8000c0e:	68bb      	ldr	r3, [r7, #8]
+ 8000c10:	f003 0340 	and.w	r3, r3, #64	@ 0x40
+ 8000c14:	2b00      	cmp	r3, #0
+ 8000c16:	d00c      	beq.n	8000c32 <HAL_TIM_IRQHandler+0x1e2>
+  {
+    if ((itsource & (TIM_IT_TRIGGER)) == (TIM_IT_TRIGGER))
+ 8000c18:	68fb      	ldr	r3, [r7, #12]
+ 8000c1a:	f003 0340 	and.w	r3, r3, #64	@ 0x40
+ 8000c1e:	2b00      	cmp	r3, #0
+ 8000c20:	d007      	beq.n	8000c32 <HAL_TIM_IRQHandler+0x1e2>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_TRIGGER);
+ 8000c22:	687b      	ldr	r3, [r7, #4]
+ 8000c24:	681b      	ldr	r3, [r3, #0]
+ 8000c26:	f06f 0240 	mvn.w	r2, #64	@ 0x40
+ 8000c2a:	611a      	str	r2, [r3, #16]
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+      htim->TriggerCallback(htim);
+#else
+      HAL_TIM_TriggerCallback(htim);
+ 8000c2c:	6878      	ldr	r0, [r7, #4]
+ 8000c2e:	f000 f87c 	bl	8000d2a <HAL_TIM_TriggerCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+    }
+  }
+  /* TIM commutation event */
+  if ((itflag & (TIM_FLAG_COM)) == (TIM_FLAG_COM))
+ 8000c32:	68bb      	ldr	r3, [r7, #8]
+ 8000c34:	f003 0320 	and.w	r3, r3, #32
+ 8000c38:	2b00      	cmp	r3, #0
+ 8000c3a:	d00c      	beq.n	8000c56 <HAL_TIM_IRQHandler+0x206>
+  {
+    if ((itsource & (TIM_IT_COM)) == (TIM_IT_COM))
+ 8000c3c:	68fb      	ldr	r3, [r7, #12]
+ 8000c3e:	f003 0320 	and.w	r3, r3, #32
+ 8000c42:	2b00      	cmp	r3, #0
+ 8000c44:	d007      	beq.n	8000c56 <HAL_TIM_IRQHandler+0x206>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_COM);
+ 8000c46:	687b      	ldr	r3, [r7, #4]
+ 8000c48:	681b      	ldr	r3, [r3, #0]
+ 8000c4a:	f06f 0220 	mvn.w	r2, #32
+ 8000c4e:	611a      	str	r2, [r3, #16]
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+      htim->CommutationCallback(htim);
+#else
+      HAL_TIMEx_CommutCallback(htim);
+ 8000c50:	6878      	ldr	r0, [r7, #4]
+ 8000c52:	f000 f874 	bl	8000d3e <HAL_TIMEx_CommutCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+    }
+  }
+  /* TIM Encoder index event */
+  if ((itflag & (TIM_FLAG_IDX)) == (TIM_FLAG_IDX))
+ 8000c56:	68bb      	ldr	r3, [r7, #8]
+ 8000c58:	f403 1380 	and.w	r3, r3, #1048576	@ 0x100000
+ 8000c5c:	2b00      	cmp	r3, #0
+ 8000c5e:	d00c      	beq.n	8000c7a <HAL_TIM_IRQHandler+0x22a>
+  {
+    if ((itsource & (TIM_IT_IDX)) == (TIM_IT_IDX))
+ 8000c60:	68fb      	ldr	r3, [r7, #12]
+ 8000c62:	f403 1380 	and.w	r3, r3, #1048576	@ 0x100000
+ 8000c66:	2b00      	cmp	r3, #0
+ 8000c68:	d007      	beq.n	8000c7a <HAL_TIM_IRQHandler+0x22a>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_IDX);
+ 8000c6a:	687b      	ldr	r3, [r7, #4]
+ 8000c6c:	681b      	ldr	r3, [r3, #0]
+ 8000c6e:	f46f 1280 	mvn.w	r2, #1048576	@ 0x100000
+ 8000c72:	611a      	str	r2, [r3, #16]
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+      htim->EncoderIndexCallback(htim);
+#else
+      HAL_TIMEx_EncoderIndexCallback(htim);
+ 8000c74:	6878      	ldr	r0, [r7, #4]
+ 8000c76:	f000 f880 	bl	8000d7a <HAL_TIMEx_EncoderIndexCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+    }
+  }
+  /* TIM Direction change event */
+  if ((itflag & (TIM_FLAG_DIR)) == (TIM_FLAG_DIR))
+ 8000c7a:	68bb      	ldr	r3, [r7, #8]
+ 8000c7c:	f403 1300 	and.w	r3, r3, #2097152	@ 0x200000
+ 8000c80:	2b00      	cmp	r3, #0
+ 8000c82:	d00c      	beq.n	8000c9e <HAL_TIM_IRQHandler+0x24e>
+  {
+    if ((itsource & (TIM_IT_DIR)) == (TIM_IT_DIR))
+ 8000c84:	68fb      	ldr	r3, [r7, #12]
+ 8000c86:	f403 1300 	and.w	r3, r3, #2097152	@ 0x200000
+ 8000c8a:	2b00      	cmp	r3, #0
+ 8000c8c:	d007      	beq.n	8000c9e <HAL_TIM_IRQHandler+0x24e>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_DIR);
+ 8000c8e:	687b      	ldr	r3, [r7, #4]
+ 8000c90:	681b      	ldr	r3, [r3, #0]
+ 8000c92:	f46f 1200 	mvn.w	r2, #2097152	@ 0x200000
+ 8000c96:	611a      	str	r2, [r3, #16]
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+      htim->DirectionChangeCallback(htim);
+#else
+      HAL_TIMEx_DirectionChangeCallback(htim);
+ 8000c98:	6878      	ldr	r0, [r7, #4]
+ 8000c9a:	f000 f878 	bl	8000d8e <HAL_TIMEx_DirectionChangeCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+    }
+  }
+  /* TIM Index error event */
+  if ((itflag & (TIM_FLAG_IERR)) == (TIM_FLAG_IERR))
+ 8000c9e:	68bb      	ldr	r3, [r7, #8]
+ 8000ca0:	f403 0380 	and.w	r3, r3, #4194304	@ 0x400000
+ 8000ca4:	2b00      	cmp	r3, #0
+ 8000ca6:	d00c      	beq.n	8000cc2 <HAL_TIM_IRQHandler+0x272>
+  {
+    if ((itsource & (TIM_IT_IERR)) == (TIM_IT_IERR))
+ 8000ca8:	68fb      	ldr	r3, [r7, #12]
+ 8000caa:	f403 0380 	and.w	r3, r3, #4194304	@ 0x400000
+ 8000cae:	2b00      	cmp	r3, #0
+ 8000cb0:	d007      	beq.n	8000cc2 <HAL_TIM_IRQHandler+0x272>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_IERR);
+ 8000cb2:	687b      	ldr	r3, [r7, #4]
+ 8000cb4:	681b      	ldr	r3, [r3, #0]
+ 8000cb6:	f46f 0280 	mvn.w	r2, #4194304	@ 0x400000
+ 8000cba:	611a      	str	r2, [r3, #16]
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+      htim->IndexErrorCallback(htim);
+#else
+      HAL_TIMEx_IndexErrorCallback(htim);
+ 8000cbc:	6878      	ldr	r0, [r7, #4]
+ 8000cbe:	f000 f870 	bl	8000da2 <HAL_TIMEx_IndexErrorCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+    }
+  }
+  /* TIM Transition error event */
+  if ((itflag & (TIM_FLAG_TERR)) == (TIM_FLAG_TERR))
+ 8000cc2:	68bb      	ldr	r3, [r7, #8]
+ 8000cc4:	f403 0300 	and.w	r3, r3, #8388608	@ 0x800000
+ 8000cc8:	2b00      	cmp	r3, #0
+ 8000cca:	d00c      	beq.n	8000ce6 <HAL_TIM_IRQHandler+0x296>
+  {
+    if ((itsource & (TIM_IT_TERR)) == (TIM_IT_TERR))
+ 8000ccc:	68fb      	ldr	r3, [r7, #12]
+ 8000cce:	f403 0300 	and.w	r3, r3, #8388608	@ 0x800000
+ 8000cd2:	2b00      	cmp	r3, #0
+ 8000cd4:	d007      	beq.n	8000ce6 <HAL_TIM_IRQHandler+0x296>
+    {
+      __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_TERR);
+ 8000cd6:	687b      	ldr	r3, [r7, #4]
+ 8000cd8:	681b      	ldr	r3, [r3, #0]
+ 8000cda:	f46f 0200 	mvn.w	r2, #8388608	@ 0x800000
+ 8000cde:	611a      	str	r2, [r3, #16]
+#if (USE_HAL_TIM_REGISTER_CALLBACKS == 1)
+      htim->TransitionErrorCallback(htim);
+#else
+      HAL_TIMEx_TransitionErrorCallback(htim);
+ 8000ce0:	6878      	ldr	r0, [r7, #4]
+ 8000ce2:	f000 f868 	bl	8000db6 <HAL_TIMEx_TransitionErrorCallback>
+#endif /* USE_HAL_TIM_REGISTER_CALLBACKS */
+    }
+  }
+}
+ 8000ce6:	bf00      	nop
+ 8000ce8:	3710      	adds	r7, #16
+ 8000cea:	46bd      	mov	sp, r7
+ 8000cec:	bd80      	pop	{r7, pc}
+
+08000cee <HAL_TIM_OC_DelayElapsedCallback>:
+  * @brief  Output Compare callback in non-blocking mode
+  * @param  htim TIM OC handle
+  * @retval None
+  */
+__weak void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
+{
+ 8000cee:	b480      	push	{r7}
+ 8000cf0:	b083      	sub	sp, #12
+ 8000cf2:	af00      	add	r7, sp, #0
+ 8000cf4:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIM_OC_DelayElapsedCallback could be implemented in the user file
+   */
+}
+ 8000cf6:	bf00      	nop
+ 8000cf8:	370c      	adds	r7, #12
+ 8000cfa:	46bd      	mov	sp, r7
+ 8000cfc:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000d00:	4770      	bx	lr
+
+08000d02 <HAL_TIM_IC_CaptureCallback>:
+  * @brief  Input Capture callback in non-blocking mode
+  * @param  htim TIM IC handle
+  * @retval None
+  */
+__weak void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+ 8000d02:	b480      	push	{r7}
+ 8000d04:	b083      	sub	sp, #12
+ 8000d06:	af00      	add	r7, sp, #0
+ 8000d08:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIM_IC_CaptureCallback could be implemented in the user file
+   */
+}
+ 8000d0a:	bf00      	nop
+ 8000d0c:	370c      	adds	r7, #12
+ 8000d0e:	46bd      	mov	sp, r7
+ 8000d10:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000d14:	4770      	bx	lr
+
+08000d16 <HAL_TIM_PWM_PulseFinishedCallback>:
+  * @brief  PWM Pulse finished callback in non-blocking mode
+  * @param  htim TIM handle
+  * @retval None
+  */
+__weak void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
+{
+ 8000d16:	b480      	push	{r7}
+ 8000d18:	b083      	sub	sp, #12
+ 8000d1a:	af00      	add	r7, sp, #0
+ 8000d1c:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIM_PWM_PulseFinishedCallback could be implemented in the user file
+   */
+}
+ 8000d1e:	bf00      	nop
+ 8000d20:	370c      	adds	r7, #12
+ 8000d22:	46bd      	mov	sp, r7
+ 8000d24:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000d28:	4770      	bx	lr
+
+08000d2a <HAL_TIM_TriggerCallback>:
+  * @brief  Hall Trigger detection callback in non-blocking mode
+  * @param  htim TIM handle
+  * @retval None
+  */
+__weak void HAL_TIM_TriggerCallback(TIM_HandleTypeDef *htim)
+{
+ 8000d2a:	b480      	push	{r7}
+ 8000d2c:	b083      	sub	sp, #12
+ 8000d2e:	af00      	add	r7, sp, #0
+ 8000d30:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIM_TriggerCallback could be implemented in the user file
+   */
+}
+ 8000d32:	bf00      	nop
+ 8000d34:	370c      	adds	r7, #12
+ 8000d36:	46bd      	mov	sp, r7
+ 8000d38:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000d3c:	4770      	bx	lr
+
+08000d3e <HAL_TIMEx_CommutCallback>:
+  * @brief  Commutation callback in non-blocking mode
+  * @param  htim TIM handle
+  * @retval None
+  */
+__weak void HAL_TIMEx_CommutCallback(TIM_HandleTypeDef *htim)
+{
+ 8000d3e:	b480      	push	{r7}
+ 8000d40:	b083      	sub	sp, #12
+ 8000d42:	af00      	add	r7, sp, #0
+ 8000d44:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIMEx_CommutCallback could be implemented in the user file
+   */
+}
+ 8000d46:	bf00      	nop
+ 8000d48:	370c      	adds	r7, #12
+ 8000d4a:	46bd      	mov	sp, r7
+ 8000d4c:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000d50:	4770      	bx	lr
+
+08000d52 <HAL_TIMEx_BreakCallback>:
+  * @brief  Break detection callback in non-blocking mode
+  * @param  htim TIM handle
+  * @retval None
+  */
+__weak void HAL_TIMEx_BreakCallback(TIM_HandleTypeDef *htim)
+{
+ 8000d52:	b480      	push	{r7}
+ 8000d54:	b083      	sub	sp, #12
+ 8000d56:	af00      	add	r7, sp, #0
+ 8000d58:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIMEx_BreakCallback could be implemented in the user file
+   */
+}
+ 8000d5a:	bf00      	nop
+ 8000d5c:	370c      	adds	r7, #12
+ 8000d5e:	46bd      	mov	sp, r7
+ 8000d60:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000d64:	4770      	bx	lr
+
+08000d66 <HAL_TIMEx_Break2Callback>:
+  * @brief  Break2 detection callback in non blocking mode
+  * @param  htim: TIM handle
+  * @retval None
+  */
+__weak void HAL_TIMEx_Break2Callback(TIM_HandleTypeDef *htim)
+{
+ 8000d66:	b480      	push	{r7}
+ 8000d68:	b083      	sub	sp, #12
+ 8000d6a:	af00      	add	r7, sp, #0
+ 8000d6c:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function Should not be modified, when the callback is needed,
+            the HAL_TIMEx_Break2Callback could be implemented in the user file
+   */
+}
+ 8000d6e:	bf00      	nop
+ 8000d70:	370c      	adds	r7, #12
+ 8000d72:	46bd      	mov	sp, r7
+ 8000d74:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000d78:	4770      	bx	lr
+
+08000d7a <HAL_TIMEx_EncoderIndexCallback>:
+  * @brief  Encoder index callback in non-blocking mode
+  * @param  htim TIM handle
+  * @retval None
+  */
+__weak void HAL_TIMEx_EncoderIndexCallback(TIM_HandleTypeDef *htim)
+{
+ 8000d7a:	b480      	push	{r7}
+ 8000d7c:	b083      	sub	sp, #12
+ 8000d7e:	af00      	add	r7, sp, #0
+ 8000d80:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIMEx_EncoderIndexCallback could be implemented in the user file
+   */
+}
+ 8000d82:	bf00      	nop
+ 8000d84:	370c      	adds	r7, #12
+ 8000d86:	46bd      	mov	sp, r7
+ 8000d88:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000d8c:	4770      	bx	lr
+
+08000d8e <HAL_TIMEx_DirectionChangeCallback>:
+  * @brief  Direction change callback in non-blocking mode
+  * @param  htim TIM handle
+  * @retval None
+  */
+__weak void HAL_TIMEx_DirectionChangeCallback(TIM_HandleTypeDef *htim)
+{
+ 8000d8e:	b480      	push	{r7}
+ 8000d90:	b083      	sub	sp, #12
+ 8000d92:	af00      	add	r7, sp, #0
+ 8000d94:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIMEx_DirectionChangeCallback could be implemented in the user file
+   */
+}
+ 8000d96:	bf00      	nop
+ 8000d98:	370c      	adds	r7, #12
+ 8000d9a:	46bd      	mov	sp, r7
+ 8000d9c:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000da0:	4770      	bx	lr
+
+08000da2 <HAL_TIMEx_IndexErrorCallback>:
+  * @brief  Index error callback in non-blocking mode
+  * @param  htim TIM handle
+  * @retval None
+  */
+__weak void HAL_TIMEx_IndexErrorCallback(TIM_HandleTypeDef *htim)
+{
+ 8000da2:	b480      	push	{r7}
+ 8000da4:	b083      	sub	sp, #12
+ 8000da6:	af00      	add	r7, sp, #0
+ 8000da8:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIMEx_IndexErrorCallback could be implemented in the user file
+   */
+}
+ 8000daa:	bf00      	nop
+ 8000dac:	370c      	adds	r7, #12
+ 8000dae:	46bd      	mov	sp, r7
+ 8000db0:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000db4:	4770      	bx	lr
+
+08000db6 <HAL_TIMEx_TransitionErrorCallback>:
+  * @brief  Transition error callback in non-blocking mode
+  * @param  htim TIM handle
+  * @retval None
+  */
+__weak void HAL_TIMEx_TransitionErrorCallback(TIM_HandleTypeDef *htim)
+{
+ 8000db6:	b480      	push	{r7}
+ 8000db8:	b083      	sub	sp, #12
+ 8000dba:	af00      	add	r7, sp, #0
+ 8000dbc:	6078      	str	r0, [r7, #4]
+  UNUSED(htim);
+
+  /* NOTE : This function should not be modified, when the callback is needed,
+            the HAL_TIMEx_TransitionErrorCallback could be implemented in the user file
+   */
+}
+ 8000dbe:	bf00      	nop
+ 8000dc0:	370c      	adds	r7, #12
+ 8000dc2:	46bd      	mov	sp, r7
+ 8000dc4:	f85d 7b04 	ldr.w	r7, [sp], #4
+ 8000dc8:	4770      	bx	lr
+
+08000dca <memset>:
+ 8000dca:	4402      	add	r2, r0
+ 8000dcc:	4603      	mov	r3, r0
+ 8000dce:	4293      	cmp	r3, r2
+ 8000dd0:	d100      	bne.n	8000dd4 <memset+0xa>
+ 8000dd2:	4770      	bx	lr
+ 8000dd4:	f803 1b01 	strb.w	r1, [r3], #1
+ 8000dd8:	e7f9      	b.n	8000dce <memset+0x4>
+	...
+
+08000ddc <__libc_init_array>:
+ 8000ddc:	b570      	push	{r4, r5, r6, lr}
+ 8000dde:	4d0d      	ldr	r5, [pc, #52]	@ (8000e14 <__libc_init_array+0x38>)
+ 8000de0:	2600      	movs	r6, #0
+ 8000de2:	4c0d      	ldr	r4, [pc, #52]	@ (8000e18 <__libc_init_array+0x3c>)
+ 8000de4:	1b64      	subs	r4, r4, r5
+ 8000de6:	10a4      	asrs	r4, r4, #2
+ 8000de8:	42a6      	cmp	r6, r4
+ 8000dea:	d109      	bne.n	8000e00 <__libc_init_array+0x24>
+ 8000dec:	4d0b      	ldr	r5, [pc, #44]	@ (8000e1c <__libc_init_array+0x40>)
+ 8000dee:	2600      	movs	r6, #0
+ 8000df0:	4c0b      	ldr	r4, [pc, #44]	@ (8000e20 <__libc_init_array+0x44>)
+ 8000df2:	f000 f825 	bl	8000e40 <_init>
+ 8000df6:	1b64      	subs	r4, r4, r5
+ 8000df8:	10a4      	asrs	r4, r4, #2
+ 8000dfa:	42a6      	cmp	r6, r4
+ 8000dfc:	d105      	bne.n	8000e0a <__libc_init_array+0x2e>
+ 8000dfe:	bd70      	pop	{r4, r5, r6, pc}
+ 8000e00:	f855 3b04 	ldr.w	r3, [r5], #4
+ 8000e04:	3601      	adds	r6, #1
+ 8000e06:	4798      	blx	r3
+ 8000e08:	e7ee      	b.n	8000de8 <__libc_init_array+0xc>
+ 8000e0a:	f855 3b04 	ldr.w	r3, [r5], #4
+ 8000e0e:	3601      	adds	r6, #1
+ 8000e10:	4798      	blx	r3
+ 8000e12:	e7f2      	b.n	8000dfa <__libc_init_array+0x1e>
+ 8000e14:	08000e58 	.word	0x08000e58
+ 8000e18:	08000e58 	.word	0x08000e58
+ 8000e1c:	08000e58 	.word	0x08000e58
+ 8000e20:	08000e5c 	.word	0x08000e5c
+
+08000e24 <memcpy>:
+ 8000e24:	440a      	add	r2, r1
+ 8000e26:	1e43      	subs	r3, r0, #1
+ 8000e28:	4291      	cmp	r1, r2
+ 8000e2a:	d100      	bne.n	8000e2e <memcpy+0xa>
+ 8000e2c:	4770      	bx	lr
+ 8000e2e:	b510      	push	{r4, lr}
+ 8000e30:	f811 4b01 	ldrb.w	r4, [r1], #1
+ 8000e34:	4291      	cmp	r1, r2
+ 8000e36:	f803 4f01 	strb.w	r4, [r3, #1]!
+ 8000e3a:	d1f9      	bne.n	8000e30 <memcpy+0xc>
+ 8000e3c:	bd10      	pop	{r4, pc}
+	...
+
+08000e40 <_init>:
+ 8000e40:	b5f8      	push	{r3, r4, r5, r6, r7, lr}
+ 8000e42:	bf00      	nop
+ 8000e44:	bcf8      	pop	{r3, r4, r5, r6, r7}
+ 8000e46:	bc08      	pop	{r3}
+ 8000e48:	469e      	mov	lr, r3
+ 8000e4a:	4770      	bx	lr
+
+08000e4c <_fini>:
+ 8000e4c:	b5f8      	push	{r3, r4, r5, r6, r7, lr}
+ 8000e4e:	bf00      	nop
+ 8000e50:	bcf8      	pop	{r3, r4, r5, r6, r7}
+ 8000e52:	bc08      	pop	{r3}
+ 8000e54:	469e      	mov	lr, r3
+ 8000e56:	4770      	bx	lr

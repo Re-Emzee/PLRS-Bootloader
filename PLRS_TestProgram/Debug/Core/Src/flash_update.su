@@ -1,0 +1,4 @@
+../Drivers/CMSIS/Include/core_cm33.h:2711:34:__NVIC_SystemReset	4	static,ignoring_inline_asm
+../Core/Src/flash_update.c:30:6:Flash_Parse	56	static
+../Core/Src/flash_update.c:73:10:crc32	40	static
+../Core/Src/flash_update.c:101:6:HAL_FDCAN_RxFifo0Callback	56	static

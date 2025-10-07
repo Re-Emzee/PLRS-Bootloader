@@ -1,0 +1,8 @@
+../Core/Src/can.c:35:6:CAN_SetRxBufferSize	16	static
+../Core/Src/can.c:63:6:CAN_Init	48	static
+../Core/Src/can.c:126:19:CAN_Transmit	64	static
+../Core/Src/can.c:147:10:CAN_Receive	16	static
+../Core/Src/can.c:192:6:HAL_FDCAN_RxFifo0Callback	56	static
+../Core/Src/can.c:217:6:HAL_FDCAN_RxFifo1Callback	56	static
+../Core/Src/can.c:244:6:CAN_PrintRxData	16	static
+../Core/Src/can.c:267:9:dlc_to_bytes	16	static

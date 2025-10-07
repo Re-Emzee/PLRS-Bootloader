@@ -1,0 +1,4 @@
+../Core/Src/flash_util.c:4:6:Set_Boot_Flag	24	static
+../Core/Src/flash_util.c:13:6:Flash_Erase	48	static
+../Core/Src/flash_util.c:48:6:Flash_Write	48	static
+../Core/Src/flash_util.c:74:6:Simulate_FDCAN_Receive	96	static
