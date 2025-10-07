@@ -1,178 +1,285 @@
-# BMS Firmware Overview
+# Table of Contents
 
-This page houses the firmware project responsible for communicating with the **Battery Management System (BMS)** and collecting battery cell information.  
-The firmware runs on an **STM32U5xx** board using the **I²C** protocol for communication with the BMS.  
-The BMS is controlled by the **BQ76920** chip (more information can be found on the [BMS page]).  
-
-Diagnostics and events are handled by the firmware and reported via **CAN** to the Raspberry Pi.  
-A component overview can be found on the **BMS Research** page.
-
-> **Note:** This project is a fork of `bq769x0` tailored for PLRS.
-
----
-
-## Events and Alert Sequence
-
-The **BQ76920** features an alert signal driven by the `SYS_STAT` register.  
-This signal is the logical OR of all bits in the register. These conditions are mapped as follows:
-
-| Addr | D7        | D6        | D5            | D4           | D3  | D2  | D1  | D0  |
-|------|------------|-----------|----------------|--------------|-----|-----|-----|-----|
-| 0x00 | CC_READY   | RESERVED  | DEVICE_XREADY | OVRD_ALERT   | UV  | OV  | SCD | OCD |
-
-To clear the **ALERT** signal, the source bit in the `SYS_STAT` register must first be cleared by writing a “1” to that bit.  
-The ALERT pin clears automatically once all bits are cleared.  
-
-The `SYS_STAT` register updates and triggers the alert pin under the following conditions:
-
----
-
-### D7 — `CC_READY`
-
-Triggered when a new current reading is available.  
-Our configuration uses `CC_EN` in **ALWAYS ON** mode, gathering a new reading every **250 ms**.  
-(See **Cell Balancing** section.)
-
-- `0` – Fresh CC reading not yet available or bit cleared by host microcontroller.  
-- `1` – Fresh CC reading is available. Remains latched high until cleared by host.
+- [Overview](#overview)
+- [Memory Partitions](#memory-partitions)
+  - [Application Memory](#application-memory)
+  - [Application Buffer](#application-buffer)
+  - [Boot Flags](#boot-flags)
+- [Bootloader Base Program](#bootloader-base-program)
+- [Bootloader Utility Library](#bootloader-utility-library)
+- [Configuration](#configuration)
+  - [Changing the Boot Sequence](#changing-the-boot-sequence)
+  - [Build Process](#build-process)
+- [CAN Program Sender](#can-program-sender)
+  - [File Responsibilities](#file-responsibilities)
+  - [Transmission Format](#transmission-format)
+  - [CAN ID and Filter Configuration](#can-id-and-filter-configuration)
+- [Usage](#usage)
+  - [Main Branch Base Program](#main-branch-base-program)
+    - [Receiving Board](#receiving-board)
+    - [Sending Board](#sending-board)
+- [Testing](#testing)
+  - [Test Program For Example Application](#test-program-for-example-application)
+  - [Test Sender For Example Host](#test-sender-for-example-host)
+  - [Test Setup And Demo](#test-setup-and-demo)
+- [Debugging and Issues](#debugging-and-issues)
+- [Areas for Improvement](#areas-for-improvement)
+- [Development Notes](#development-notes)
+- [Quick Links](#quick-links)
 
 ---
 
-### D5 — `DEVICE_X`
+# Overview
 
-Internal chip fault indicator. When this bit is set to `1`, it should be cleared by the host.  
-May be set due to excessive system transients. This bit may only be cleared (not set) by the host.  
-This event also clears all `CELLBAL` control bits and must be explicitly rewritten by the host.
+“Would be better to not have to swim up to the boat to push an update.” — *Michael prob?*
 
-- `0` – Device is OK.  
-- `1` – Internal chip fault detected. Recommended: host clears this bit after a few seconds.  
+This page houses the **PLRS Bootloading Project** responsible for remote bootloading capabilities for all STM32U5 boards across PLRS. Firmware can be re-flashed and updated by sending a program binary through the **CAN bus** without the need to physically connect to the board.
 
----
+There are three components to the bootloading system:
 
-### D4 — `OVRD_`
+1. **Bootloader Base Program**
+2. **Bootloader Utility Library**
+3. **CAN Program Sender**
 
-External pull-up on the ALERT pin indicator. Active only when ALERT pin is not already driven high by the AFE.
-
-- `0` – No external override detected.  
-- `1` – External override detected. Remains latched high until cleared by host.
+> Note: The base program refers to the actual bootloading program that jumps to the application (the target running program sent over CAN).
 
 ---
 
-### D3 — `UV` (Undervoltage)
+# Memory Partitions
 
-> **2.5 V lower limit**
+The STM32U5 features **two physical flash memory banks** (Bank 1 and Bank 2, per HAL).  
+Each bank is **1 MB**, 8-byte aligned, and contains **128 pages of 8 KB**.  
+For different boards, check the memory section in the `.ioc` file.
 
-Undervoltage fault event indicator.
+![Memory Layout](image-20250517-194532.png)
 
-- `0` – No UV fault detected.  
-- `1` – UV fault detected. Remains latched high until cleared by host.
+Due to memory integrity safeguards, programs cannot write to the bank they are currently running in.  
+Thus:
 
-**Behavior:**  
-When UV is detected, discharging is disabled until the UV condition clears.  
-A UV counter exists for SOH and debug implementations.
+- **Bank 1:** Bootloader base program (entry point)
+- **Bank 2:** Application (running program)
 
----
+Additional partitions handle CRC integrity and flags.
 
-### D2 — `OV` (Overvoltage)
-
-Overvoltage fault event indicator.
-
-- `0` – No OV fault detected.  
-- `1` – OV fault detected. Remains latched high until cleared by host.
-
-**Behavior:**  
-When OV is triggered, charging is disabled until the condition clears.  
-An OV counter exists for SOH and debugging.  
-If this occurs during discharge (`PackCurrent ≥ 0`) and SOH not recently updated, the firmware runs the SOH calculation.
+| Address | Bank | Section Size | Description | Config Macro |
+|----------|------|---------------|--------------|---------------|
+| `0x08200000` | 2 | — | Reserved | — |
+| `0x08100000` | 2 | 1 MB | Application Memory | `APP_DEFAULT_ADD` |
+| `0x08020000` | 1 | 916 KB (0xE0000) | Application Buffer | `APP_LOAD_ADD` |
+| `0x0801E000` | 1 | 8 KB | Boot Flags | `BOOT_FLAG_ADD` |
+| `0x08000000` | 1 | 120 KB (0x1E000) | Bootloader Base Program | `FLASH_ORIGIN` |
 
 ---
 
-### D1/D0 — `SCD` / `OCD`
+## Application Memory
 
-Short-circuit or overcurrent in discharge fault indicator.
-
-- `0` – No fault detected.  
-- `1` – Fault detected. Remains latched high until cleared by host.
-
-**Behavior:**  
-On `SCD` or `OCD` trigger, discharging stops immediately.
+This is where the actual **application program data** is stored.  
+Entry point: `0x08020000`, configurable via `APP_DEFAULT_ADD` in `flash_update.h`.
 
 ---
 
-## Cell Balancing
+## Application Buffer
 
-The PLRS battery pack consists of **4 cells** in a **4s2p** configuration.  
-While there are 8 total cells, each pair is paralleled — so the BMS “sees” only 4.  
-(See **Battery Configuration** for more info.)
-
-| Pin | 0x0 | 0x1 | 0x2 | 0x3 | 0x4 | 0x5 |
-|------|------|------|------|------|------|------|
-| Cell | GND | Cell1 | Cell2 | Cell3 | Cell3 | Cell4 |
-
-During charge/discharge cycles, slight differences in capacity, leakage, and self-discharge cause cell charge drift.
-
-The **BQ76920** uses **passive internal balancing drivers** to equalize cell voltages at up to **50 mA**.  
-Multiple cells may be balanced simultaneously, but **adjacent cells should not** be balanced together (to avoid exceeding pin limits).  
-The total duty cycle for balancing is ~70 % per 250 ms.
-
-**Balancing occurs only during charging** for efficiency and pack health.
-
-To activate a balancing channel, set the corresponding bit in the `CELLBAL1`, `CELLBAL2`, or `CELLBAL3` registers.
-
-All cell balancing bits in these registers are **automatically cleared** under these conditions:
-
-- `DEVICE_XREADY` is set  
-- Device enters **NORMAL** mode from **SHIP** mode  
-
-These bits must be explicitly rewritten by the host after such events.
+Incoming CAN program data is stored here, starting at `0x08020000`.  
+A CRC integrity check is performed before copying to Bank 2.  
+This section is **physical flash**, not RAM.
 
 ---
 
-## Testing
+## Boot Flags
 
-The firmware testing process has two primary goals:
-
-1. Test against a **simulated testbench** with known register values.  
-2. Perform **quantitative testing** with physical hardware.
-
-See **BMS Testing Procedures** for other BMS-related tests.  
-Additional tools are available in the `dev` branch.
+One page prior to the buffer determines if CRC check passed (true = write to Bank 2).
 
 ---
 
-### Procedure
+# Bootloader Base Program
 
-1. Connect the corresponding **I²C** pins (`SDA` and `SCL`).  
-   - The BMS already includes **10 kΩ pull-up resistors**, so no external ones are required.
-2. Connect the **common ground** between the BMS and STM board.  
-   - Any ground pin on the STM is fine; they are internally connected.
-3. Run the **BMS firmware** in **debug mode**.  
-   - STM32CubeIDE does not easily print to STDOUT.  
-   - Inspect variable values by pausing execution and hovering over variables.
-4. Ensure the **BMS struct** is defined after initialization.  
-   - Key fields to verify: `gain` and `offset`.
+Main bootloader logic. Uses ~15 pages (120 KB) for testing/debugging.
+
+```c
+/* USER CODE BEGIN 1 */
+while (1) { 
+  if ((*(uint32_t*)BOOT_FLAG_ADD) == BOOT_FLAG) {
+    Flash_Erase(1, 128, 2);
+    memcpy((uint32_t *)APP_DEFAULT_ADD, (uint32_t *)APP_LOAD_ADD, APP_MAX_SIZE);
+    Set_Boot_Flag(false);
+  } else {
+    uint32_t sp = *(__IO uint32_t*) APP_DEFAULT_ADD;
+    if (sp >= MEM_LOWER_BOUND && sp < MEM_UPPER_BOUND) {
+      __set_MSP(*(__IO uint32_t *)APP_DEFAULT_ADD);
+      ((pFunction)(*(__IO uint32_t *)(APP_DEFAULT_ADD + 4)))();
+    }
+  }
+}
+/* USER CODE END 1 */
+```
+
+### Linker Script (`stm32U575ZITXQ_FLASH.ld`)
+```ld
+MEMORY
+{
+  RAM   (xrw) : ORIGIN = 0x20000000, LENGTH = 768K
+  SRAM4 (xrw) : ORIGIN = 0x28000000, LENGTH = 16K
+  FLASH (rx)  : ORIGIN = 0x08000000, LENGTH = 120K
+}
+```
+
+### Summary of Functionality
+
+1. Check boot flag:  
+   - If **true**, erase Bank 2 → copy buffer → clear flag.  
+   - If **false**, skip to application jump.
+2. Set stack pointer and validate region.
+3. Jump to application reset handler.
+4. Receive CAN updates (64B messages + 4B CRC).
+   - If CRC_OK → copy + reset.  
+   - If CRC_ERROR → reset buffer.
 
 ---
 
-## STM32 and AD2
+# Bootloader Utility Library
 
-An **Analog Discovery 2 (AD2)** is used as a spy device to read I²C signals directly from the STM board.  
-This ensures that the STM board correctly requests registers from the BMS (verified via the protocol viewer).
+Simplifies integration into application code. Includes:
 
-More information is available on the **AD2 website** and below.  
-See the **Overview page** for related BMS resources and libraries.
+| File | Function |
+|------|-----------|
+| `Core/Src/flash_util.c` | Flash write/erase utilities |
+| `Core/Src/flash_update.c` | CAN callbacks, data parsing |
+| `Core/Src/can.c` | FDCAN config, filter setup, and transmission |
+
+---
+
+# Configuration
+
+### `flash_util.h`
+```c
+#define FDCAN_CHUNK_SIZE 64
+#define APP_DEFAULT_ADD  0x08100000
+#define APP_LOAD_ADD     0x08020000
+#define APP_MAX_SIZE     0xE0000
+#define PAYLOAD_SIZE     FDCAN_DLC_BYTES_64
+#define CRC_SIZE         FDCAN_DLC_BYTES_4
+#define BOOT_FLAG_ADD    0x0801E000
+#define BOOT_FLAG        0xDEADBEEF
+```
+
+### CAN IDs (`flash_update.c`)
+```c
+const uint32_t FILTER_ID1 = 0x208;
+const uint32_t FILTER_ID2 = 0x20A;
+```
 
 ---
 
-## STM32 and Arduino
+## Changing the Boot Sequence
 
-To verify the BMS behavior, the firmware was tested against an **Arduino** that emulates BMS register values.  
-The setup was built for the **SAMD XIAO**, but should work with other Arduino-compatible devices.
+Update vector and flash base address:
 
-We used the **Arduino IDE** for its serial monitor, though other toolchains are supported.  
-(Refer to your microcontroller documentation.)
+**`stm32u575xx.h`**
+```c
+#define FLASH_BASE 0x08100000
+```
 
-The Arduino testbench code can be found here:  
-**[SAMD XIAO BMS](#)**
+**`stm32u575xx.c`**
+```c
+#ifdef VECT_TAB_SRAM
+  SCB->VTOR = SRAM1_BASE | VECT_TAB_OFFSET;
+#else
+  SCB->VTOR = FLASH_BASE | VECT_TAB_OFFSET;
+#endif
+```
+
+**Linker:**
+```ld
+FLASH (rx) : ORIGIN = 0x08100000, LENGTH = 1024K
+```
 
 ---
+
+## Build Process
+
+```bash
+arm-none-eabi-objcopy -O binary BootloaderTestProgram.elf BootloaderTestProgram.bin
+python3 bin2c.py BootloaderTestProgram.bin data.c data
+```
+
+---
+
+# CAN Program Sender
+
+Utility for flashing firmware over CAN.
+
+### Responsibilities
+| File | Function |
+|------|-----------|
+| `main.c` | Peripheral init, main CAN loop |
+| `can.c` | FDCAN configuration |
+| `data.c` | Auto-generated firmware data array |
+
+### Transmission Process
+
+1. Split firmware into 64-byte chunks.  
+2. Send via `CAN_Transmit()` with defined IDs.  
+3. CRC (4B) sent at end.
+
+### CAN Filters
+- **0x208:** Firmware chunk ID  
+- **0x20A:** Secondary/acknowledge ID
+
+---
+
+# Usage
+
+Clone the repo:
+```bash
+git clone --branch main --single-branch https://github.com/UBCSailbot/PLRS_Bootloading.git
+```
+
+## Receiving Board
+
+1. Flash `PLRS_BOOTLOADER` project.  
+2. Flash application afterward.  
+3. System jumps automatically to app on reset.
+
+## Sending Board
+
+Use second STM32 or Raspberry Pi.  
+Ensure 64B chunks and CRC appended at end.
+
+---
+
+# Testing
+
+## Example Application
+
+Blinks green LED; button toggles blue; red flashes on CAN receive.
+
+## Example Host Sender
+
+Sends compiled binary over CAN with CRC check.
+
+```c
+while (offset < data_len) {
+  memset(TxData1, 0xFF, 64);
+  memcpy(TxData1, &data[offset], chunk_size);
+  CAN_Transmit(FILTER_ID1, FDCAN_STANDARD_ID, FDCAN_DLC_BYTES_64, TxData1, &hfdcan1);
+  HAL_Delay(50);
+  offset += chunk_size;
+}
+```
+
+---
+
+# Debugging and Issues
+
+- Using `HAL_Delay()` may cause inconsistent timing. Replace with interrupt-based or polling mechanism.  
+- Check flash writes in debug memory viewer.  
+- FIFO overflow → consider longer delay or send ack system.
+
+---
+
+# Areas for Improvement
+
+- Optimize `memcpy` calls.  
+- Reduce bootloader binary size.  
+- Implement non-blocking CAN transmit.  
